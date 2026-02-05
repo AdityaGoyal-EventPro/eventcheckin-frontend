@@ -30,11 +30,7 @@ function CheckIn({ user, onLogout }) {
     try {
       await guestsAPI.checkIn(guestId, user.name);
       setCheckInSuccess(true);
-      
-      // Reload guests to update the list
       await loadGuests();
-      
-      // Reset after 2 seconds
       setTimeout(() => {
         setCheckInSuccess(false);
         setSelectedGuest(null);
@@ -61,7 +57,7 @@ function CheckIn({ user, onLogout }) {
     <div className="checkin-container" style={{ minHeight: '100vh', paddingTop: '20px' }}>
       <div className="dashboard-header">
         <button className="btn-secondary" onClick={() => navigate(`/event/${eventId}`)}>
-          ← Back to Event
+          Back to Event
         </button>
         
         <h1 style={{ marginTop: '20px' }}>Check-In Mode</h1>
@@ -85,7 +81,7 @@ function CheckIn({ user, onLogout }) {
       <div className="scan-area" style={{ marginTop: '30px' }}>
         {checkInSuccess ? (
           <div className="success-animation">
-            <div style={{ fontSize: '80px', marginBottom: '20px' }}>✅</div>
+            <div style={{ fontSize: '80px', marginBottom: '20px' }}>Success</div>
             <h2 style={{ color: '#4caf50' }}>Check-In Successful!</h2>
             <p style={{ color: '#666', marginTop: '10px' }}>
               {selectedGuest?.name} has been checked in
@@ -93,7 +89,7 @@ function CheckIn({ user, onLogout }) {
           </div>
         ) : (
           <>
-            <div className="scan-icon">📱</div>
+            <div className="scan-icon">Search</div>
             <h2>Search Guest to Check In</h2>
             
             <input
@@ -136,8 +132,8 @@ function CheckIn({ user, onLogout }) {
                       <div>
                         <h3 style={{ marginBottom: '8px' }}>{guest.name}</h3>
                         <div style={{ fontSize: '14px', color: '#666' }}>
-                          {guest.email && <div>📧 {guest.email}</div>}
-                          {guest.phone && <div>📱 {guest.phone}</div>}
+                          {guest.email && <div>Email: {guest.email}</div>}
+                          {guest.phone && <div>Phone: {guest.phone}</div>}
                           <div style={{ marginTop: '8px' }}>
                             <span className={`badge ${guest.category === 'VIP' ? 'badge-vip' : ''}`}>
                               {guest.category}
@@ -153,7 +149,7 @@ function CheckIn({ user, onLogout }) {
                       <div>
                         {guest.checked_in ? (
                           <div style={{ textAlign: 'right' }}>
-                            <div className="badge badge-success">✓ Checked In</div>
+                            <div className="badge badge-success">Checked In</div>
                             <div style={{ fontSize: '12px', color: '#999', marginTop: '4px' }}>
                               {guest.checked_in_time}
                             </div>
@@ -185,7 +181,7 @@ function CheckIn({ user, onLogout }) {
               <h3 style={{ marginBottom: '12px' }}>Quick Instructions:</h3>
               <ol style={{ textAlign: 'left', color: '#666', paddingLeft: '20px' }}>
                 <li>Search for guest by name, email, or phone</li>
-                <li>Click on the guest card or "Check In" button</li>
+                <li>Click on the guest card or Check In button</li>
                 <li>Confirmation will appear automatically</li>
                 <li>VIP guests are highlighted in purple</li>
               </ol>
@@ -194,7 +190,6 @@ function CheckIn({ user, onLogout }) {
         )}
       </div>
 
-      {/* Quick Stats at Bottom */}
       <div style={{ marginTop: '40px', textAlign: 'center', color: 'white' }}>
         <p style={{ fontSize: '14px', opacity: 0.8 }}>
           Progress: {stats.checkedIn} of {stats.total} guests checked in 
@@ -206,31 +201,3 @@ function CheckIn({ user, onLogout }) {
 }
 
 export default CheckIn;
-```
-
-4. **Click:** "Commit changes"
-
----
-
-## 🎉 CONGRATULATIONS! BATCH 4 COMPLETE!
-
-You've successfully created ALL the files! Your repository now has:
-```
-eventcheckin-frontend/
-├── public/
-│   └── index.html ✅
-├── src/
-│   ├── components/
-│   │   ├── CheckIn.js ✅
-│   │   ├── Dashboard.js ✅
-│   │   ├── EventDetails.js ✅
-│   │   ├── Login.js ✅
-│   │   └── Signup.js ✅
-│   ├── api.js ✅
-│   ├── App.css ✅
-│   ├── App.js ✅
-│   └── index.js ✅
-├── .env ✅
-├── .gitignore ✅
-├── package.json ✅
-└── vercel.json ✅
