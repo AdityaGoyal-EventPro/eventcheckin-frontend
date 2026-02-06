@@ -23,6 +23,9 @@ export const eventsAPI = {
   create: (eventData) => 
     api.post('/api/events', eventData),
   
+  getAll: () => 
+    api.get('/api/events'),
+  
   getByHost: (hostId) => 
     api.get(`/api/events/host/${hostId}`),
   
