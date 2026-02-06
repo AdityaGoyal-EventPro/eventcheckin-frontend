@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Login from './components/Login';
 import Signup from './components/Signup';
 import Dashboard from './components/Dashboard';
+import VenueDashboard from './components/VenueDashboard';
 import EventDetails from './components/EventDetails';
 import CheckIn from './components/CheckIn';
 import './App.css';
@@ -53,7 +54,21 @@ function App() {
           />
           <Route 
             path="/dashboard" 
-            element={user ? <Dashboard user={user} onLogout={handleLogout} /> : <Navigate to="/login" />} 
+            element={
+              user ? (
+                user.role === 'venue' ? (
+                  <VenueDashboard user={user} onLogout={handleLogout} />
+                ) : (
+                  <Dashboard user={user} onLogout={handleLogout} />
+                )
+              ) : (
+                <Navigate to="/login" />
+              )
+            } 
+          />
+          <Route 
+            path="/venue-dashboard" 
+            element={user ? <VenueDashboard user={user} onLogout={handleLogout} /> : <Navigate to="/login" />} 
           />
           <Route 
             path="/event/:eventId" 
