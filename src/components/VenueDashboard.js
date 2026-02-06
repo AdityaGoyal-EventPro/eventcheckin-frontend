@@ -28,33 +28,20 @@ function VenueDashboard({ user, onLogout }) {
 
   const loadVenueData = async () => {
     try {
-      // For now, load events by querying all hosts (workaround)
-      // In production, backend should have GET /api/events endpoint
+      // Load events for THIS venue only
       let events = [];
       
-      // Try multiple approaches to load events
-      try {
-        // Approach 1: Try getAll if it exists
+      if (user.venue_id) {
+        // Venue staff sees only their venue's events
+        console.log('Loading events for venue_id:', user.venue_id);
+        const eventsResponse = await eventsAPI.getByVenue(user.venue_id);
+        events = eventsResponse.data.events || [];
+        console.log('Loaded events for venue:', events);
+      } else {
+        console.warn('User has no venue_id, showing all events as fallback');
+        // Fallback: show all events (should not happen in production)
         const eventsResponse = await eventsAPI.getAll();
-        events = eventsResponse.data.events || eventsResponse.data || [];
-        console.log('Loaded events via getAll:', events);
-      } catch (err) {
-        console.warn('getAll failed, trying alternative approach:', err.message);
-        
-        // Approach 2: Load the current user's events if they're also a host
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-          try {
-            const userData = JSON.parse(storedUser);
-            if (userData.id) {
-              const hostEventsResponse = await eventsAPI.getByHost(userData.id);
-              events = hostEventsResponse.data.events || hostEventsResponse.data || [];
-              console.log('Loaded events via getByHost:', events);
-            }
-          } catch (hostErr) {
-            console.warn('getByHost also failed:', hostErr.message);
-          }
-        }
+        events = eventsResponse.data.events || [];
       }
       
       console.log('Final events array:', events);
