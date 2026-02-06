@@ -51,55 +51,86 @@ function CSVImport({ eventId, onImportComplete, onClose }) {
   };
 
   const handleImport = async () => {
+    console.log('Starting import for event:', eventId);
     setImporting(true);
     setErrors([]);
     
     try {
+      // Import guestsAPI first
+      const { guestsAPI } = await import('../api');
+      
       // Parse the entire file, not just preview
       const reader = new FileReader();
       reader.onload = async (e) => {
-        const text = e.target.result;
-        const lines = text.split('\n').filter(line => line.trim());
-        
-        // Parse CSV headers and data
-        const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-        const allGuests = lines.slice(1).map(line => {
-          const values = line.split(',').map(v => v.trim());
-          return {
-            event_id: eventId,
-            name: values[headers.indexOf('name')] || '',
-            email: values[headers.indexOf('email')] || '',
-            phone: values[headers.indexOf('phone')] || '',
-            category: values[headers.indexOf('category')] || 'General',
-            plus_ones: parseInt(values[headers.indexOf('plus_ones')] || values[headers.indexOf('plusones')] || 0),
-            is_walkin: false
-          };
-        }).filter(guest => guest.name); // Only include guests with names
-        
-        // Import guests one by one
-        let successCount = 0;
-        let failCount = 0;
-        
-        for (const guestData of allGuests) {
-          try {
-            // Dynamically import guestsAPI
-            const { guestsAPI } = await import('../api');
-            await guestsAPI.create(guestData);
-            successCount++;
-          } catch (err) {
-            console.error('Failed to import guest:', guestData.name, err);
-            failCount++;
+        try {
+          const text = e.target.result;
+          console.log('File content:', text.substring(0, 200));
+          const lines = text.split('\n').filter(line => line.trim());
+          
+          // Parse CSV headers and data
+          const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+          console.log('Headers found:', headers);
+          
+          const allGuests = lines.slice(1).map(line => {
+            const values = line.split(',').map(v => v.trim());
+            return {
+              event_id: eventId,
+              name: values[headers.indexOf('name')] || '',
+              email: values[headers.indexOf('email')] || '',
+              phone: values[headers.indexOf('phone')] || '',
+              category: values[headers.indexOf('category')] || 'General',
+              plus_ones: parseInt(values[headers.indexOf('plus_ones')] || values[headers.indexOf('plusones')] || 0),
+              is_walkin: false
+            };
+          }).filter(guest => guest.name); // Only include guests with names
+          
+          console.log('Parsed guests:', allGuests);
+          
+          // Import guests one by one
+          let successCount = 0;
+          let failCount = 0;
+          const errors = [];
+          
+          for (const guestData of allGuests) {
+            try {
+              console.log('Creating guest:', guestData);
+              const result = await guestsAPI.create(guestData);
+              console.log('Guest created:', result);
+              successCount++;
+            } catch (err) {
+              console.error('Failed to import guest:', guestData.name, err);
+              errors.push(`${guestData.name}: ${err.message}`);
+              failCount++;
+            }
           }
+          
+          setImporting(false);
+          
+          if (errors.length > 0) {
+            setErrors(errors);
+          }
+          
+          alert(`✅ Successfully imported ${successCount} guests!${failCount > 0 ? `\n⚠️ ${failCount} failed` : ''}`);
+          if (onImportComplete) onImportComplete();
+          if (successCount > 0) {
+            onClose();
+          }
+        } catch (innerError) {
+          console.error('Inner error:', innerError);
+          setImporting(false);
+          setErrors(['Parse error: ' + innerError.message]);
         }
-        
+      };
+      
+      reader.onerror = (error) => {
+        console.error('File read error:', error);
         setImporting(false);
-        alert(`✅ Successfully imported ${successCount} guests!${failCount > 0 ? `\n⚠️ ${failCount} failed` : ''}`);
-        if (onImportComplete) onImportComplete();
-        onClose();
+        setErrors(['Failed to read file']);
       };
       
       reader.readAsText(file);
     } catch (error) {
+      console.error('Outer error:', error);
       setImporting(false);
       setErrors(['Import failed: ' + error.message]);
     }
