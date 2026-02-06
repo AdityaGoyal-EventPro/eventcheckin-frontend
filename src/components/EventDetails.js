@@ -5,6 +5,8 @@ import { QRCodeSVG } from 'qrcode.react';
 import CSVImport from './CSVImport';
 import WalkInModal from './WalkInModal';
 import QRScanner from './QRScanner';
+import SendInvitationsModal from './SendInvitationsModal';
+import CheckInSuccessDialog from './CheckInSuccessDialog';
 
 function EventDetails({ user, onLogout }) {
   const { eventId } = useParams();
@@ -17,6 +19,9 @@ function EventDetails({ user, onLogout }) {
   const [showCSVImport, setShowCSVImport] = useState(false);
   const [showWalkIn, setShowWalkIn] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [checkedInGuest, setCheckedInGuest] = useState(null);
+  const [event, setEvent] = useState(null);
 
   useEffect(() => {
     loadGuests();
@@ -171,9 +176,12 @@ function EventDetails({ user, onLogout }) {
       )}
 
       {showInviteModal && (
-        <InviteModal 
+        <SendInvitationsModal
           eventId={eventId}
+          eventName={event?.name || 'Event'}
+          guestCount={guests.length}
           onClose={() => setShowInviteModal(false)}
+          onSuccess={loadGuests}
         />
       )}
 
@@ -209,13 +217,25 @@ function EventDetails({ user, onLogout }) {
             const guest = guests.find(g => g.id === qrData.guest_id);
             if (guest) {
               guestsAPI.checkIn(guest.id, 'QR Scanner').then(() => {
-                alert(`✅ ${guest.name} checked in successfully!`);
+                setCheckedInGuest(guest);
+                setShowSuccessDialog(true);
                 loadGuests();
                 setShowQRScanner(false);
               });
             }
           }}
           onClose={() => setShowQRScanner(false)}
+        />
+      )}
+
+      {showSuccessDialog && checkedInGuest && (
+        <CheckInSuccessDialog
+          guest={checkedInGuest}
+          event={event}
+          onClose={() => {
+            setShowSuccessDialog(false);
+            setCheckedInGuest(null);
+          }}
         />
       )}
     </div>
