@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import LoginSelection from './components/LoginSelection';
+import HostLogin from './components/HostLogin';
+import VenueLogin from './components/VenueLogin';
 import Login from './components/Login';
 import Signup from './components/Signup';
 import Dashboard from './components/Dashboard';
@@ -46,11 +49,27 @@ function App() {
         <Routes>
           <Route 
             path="/login" 
-            element={user ? <Navigate to="/dashboard" /> : <Login onLogin={handleLogin} />} 
+            element={user ? <Navigate to="/dashboard" /> : <LoginSelection />} 
+          />
+          <Route 
+            path="/login/host" 
+            element={user ? <Navigate to="/dashboard" /> : <HostLogin onLogin={handleLogin} />} 
+          />
+          <Route 
+            path="/login/venue" 
+            element={user ? <Navigate to="/dashboard" /> : <VenueLogin onLogin={handleLogin} />} 
           />
           <Route 
             path="/signup" 
             element={user ? <Navigate to="/dashboard" /> : <Signup onSignup={handleLogin} />} 
+          />
+          <Route 
+            path="/signup/host" 
+            element={user ? <Navigate to="/dashboard" /> : <Signup onSignup={handleLogin} role="host" />} 
+          />
+          <Route 
+            path="/signup/venue" 
+            element={user ? <Navigate to="/dashboard" /> : <Signup onSignup={handleLogin} role="venue" />} 
           />
           <Route 
             path="/dashboard" 
