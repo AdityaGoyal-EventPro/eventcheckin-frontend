@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { authAPI } from '../api';
+import { authAPI, venuesAPI } from '../api';
 
 function Signup({ onSignup }) {
   const [formData, setFormData] = useState({
@@ -9,10 +9,26 @@ function Signup({ onSignup }) {
     password: '',
     phone: '',
     role: 'host',
-    venue_name: ''
+    venue_id: null
   });
+  const [venues, setVenues] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (formData.role === 'venue') {
+      loadVenues();
+    }
+  }, [formData.role]);
+
+  const loadVenues = async () => {
+    try {
+      const response = await venuesAPI.getAll();
+      setVenues(response.data.venues || []);
+    } catch (err) {
+      console.error('Error loading venues:', err);
+    }
+  };
 
   const handleChange = (e) => {
     setFormData({
@@ -104,15 +120,25 @@ function Signup({ onSignup }) {
 
           {formData.role === 'venue' && (
             <div className="form-group">
-              <label>Venue Name</label>
-              <input
-                type="text"
-                name="venue_name"
-                value={formData.venue_name}
+              <label>Select Your Venue</label>
+              <select
+                name="venue_id"
+                value={formData.venue_id || ''}
                 onChange={handleChange}
-                placeholder="My Venue"
                 required
-              />
+              >
+                <option value="">-- Choose your venue --</option>
+                {venues.map(venue => (
+                  <option key={venue.id} value={venue.id}>
+                    {venue.name} - {venue.city}
+                  </option>
+                ))}
+              </select>
+              {venues.length === 0 && (
+                <small style={{color: '#666', marginTop: '4px', display: 'block'}}>
+                  Loading venues...
+                </small>
+              )}
             </div>
           )}
 
