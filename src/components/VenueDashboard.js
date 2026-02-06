@@ -4,6 +4,7 @@ import { Globe, Scan, Users, CheckCircle, BarChart3, Clock, Eye, Plus } from 'lu
 import { eventsAPI, guestsAPI } from '../api';
 import WalkInModal from './WalkInModal';
 import QRScanner from './QRScanner';
+import CheckInSuccessDialog from './CheckInSuccessDialog';
 
 function VenueDashboard({ user, onLogout }) {
   const navigate = useNavigate();
@@ -15,6 +16,8 @@ function VenueDashboard({ user, onLogout }) {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [activeScanner, setActiveScanner] = useState('Scanner 1');
   const [recentActivity, setRecentActivity] = useState([]);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [checkedInGuest, setCheckedInGuest] = useState(null);
 
   useEffect(() => {
     loadVenueData();
@@ -132,9 +135,15 @@ function VenueDashboard({ user, onLogout }) {
 
   const handleCheckIn = async (guestId) => {
     try {
+      const guest = allGuests.find(g => g.id === guestId);
       await guestsAPI.checkIn(guestId, activeScanner);
+      
+      if (guest) {
+        setCheckedInGuest(guest);
+        setShowSuccessDialog(true);
+      }
+      
       await loadVenueData();
-      alert('✅ Guest checked in successfully!');
     } catch (error) {
       alert('Error checking in guest');
     }
@@ -375,6 +384,18 @@ function VenueDashboard({ user, onLogout }) {
             setSelectedEvent(null);
           }}
           onSuccess={loadVenueData}
+        />
+      )}
+
+      {/* Check-In Success Dialog */}
+      {showSuccessDialog && checkedInGuest && (
+        <CheckInSuccessDialog
+          guest={checkedInGuest}
+          event={selectedEvent || events.find(e => e.id === checkedInGuest.event_id)}
+          onClose={() => {
+            setShowSuccessDialog(false);
+            setCheckedInGuest(null);
+          }}
         />
       )}
     </div>
