@@ -33,6 +33,18 @@ export const eventsAPI = {
     api.get(`/api/events/venue/${venueId}`),
 };
 
+// Venues API
+export const venuesAPI = {
+  getAll: () =>
+    api.get('/api/venues'),
+  
+  getById: (venueId) =>
+    api.get(`/api/venues/${venueId}`),
+  
+  requestVenue: (venueData) =>
+    api.post('/api/venues/request', venueData),
+};
+
 // Guests API
 export const guestsAPI = {
   create: (guestData) => 
