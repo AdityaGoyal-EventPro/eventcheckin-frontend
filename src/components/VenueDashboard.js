@@ -25,7 +25,7 @@ function VenueDashboard({ user, onLogout }) {
 
   const loadVenueData = async () => {
     try {
-      // Load all events (in real app, filter by venue)
+      // Load all events (showing all events for testing)
       const eventsResponse = await eventsAPI.getAll();
       setEvents(eventsResponse.data.events || []);
 
@@ -177,11 +177,11 @@ function VenueDashboard({ user, onLogout }) {
                 <Globe className="w-8 h-8" />
                 <h2 className="text-2xl font-bold">Global Scan Mode</h2>
               </div>
-              <p className="text-purple-100 mb-4">Scan guests from any event happening today</p>
+              <p className="text-purple-100 mb-4">Scan guests from any event at this venue</p>
               <div className="flex gap-6 text-sm">
                 <div>
                   <div className="font-semibold">{stats.totalEvents} Events</div>
-                  <div className="text-purple-200">Active today</div>
+                  <div className="text-purple-200">At this venue</div>
                 </div>
                 <div>
                   <div className="font-semibold">{stats.totalGuests} Guests</div>
@@ -281,8 +281,8 @@ function VenueDashboard({ user, onLogout }) {
         {events.length === 0 && (
           <div className="text-center py-12 bg-white rounded-xl">
             <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No Events Today</h3>
-            <p className="text-gray-600">There are no events scheduled at this venue today.</p>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">No Events Found</h3>
+            <p className="text-gray-600">There are no events at this venue yet.</p>
           </div>
         )}
       </div>
