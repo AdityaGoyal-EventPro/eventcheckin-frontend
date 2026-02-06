@@ -230,9 +230,6 @@ function CreateEventModal({ user, onClose, onSuccess }) {
               </small>
             )}
           </div>
-              />
-            </div>
-          )}
 
           <div className="form-group">
             <label>Expected Guests</label>
