@@ -25,37 +25,84 @@ function VenueDashboard({ user, onLogout }) {
 
   const loadVenueData = async () => {
     try {
-      // Load all events (showing all events for testing)
-      const eventsResponse = await eventsAPI.getAll();
-      setEvents(eventsResponse.data.events || []);
+      // For now, load events by querying all hosts (workaround)
+      // In production, backend should have GET /api/events endpoint
+      let events = [];
+      
+      // Try multiple approaches to load events
+      try {
+        // Approach 1: Try getAll if it exists
+        const eventsResponse = await eventsAPI.getAll();
+        events = eventsResponse.data.events || eventsResponse.data || [];
+        console.log('Loaded events via getAll:', events);
+      } catch (err) {
+        console.warn('getAll failed, trying alternative approach:', err.message);
+        
+        // Approach 2: Load the current user's events if they're also a host
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          try {
+            const userData = JSON.parse(storedUser);
+            if (userData.id) {
+              const hostEventsResponse = await eventsAPI.getByHost(userData.id);
+              events = hostEventsResponse.data.events || hostEventsResponse.data || [];
+              console.log('Loaded events via getByHost:', events);
+            }
+          } catch (hostErr) {
+            console.warn('getByHost also failed:', hostErr.message);
+          }
+        }
+      }
+      
+      console.log('Final events array:', events);
+      setEvents(Array.isArray(events) ? events : []);
 
       // Load all guests for these events
-      const guestsPromises = (eventsResponse.data.events || []).map(event =>
-        guestsAPI.getByEvent(event.id).catch(() => ({ data: { guests: [] } }))
-      );
-      const guestsResponses = await Promise.all(guestsPromises);
-      const guests = guestsResponses.flatMap(r => r.data.guests || []);
-      setAllGuests(guests);
+      if (Array.isArray(events) && events.length > 0) {
+        console.log('Loading guests for', events.length, 'events');
+        const guestsPromises = events.map(event =>
+          guestsAPI.getByEvent(event.id)
+            .catch((err) => {
+              console.warn('Failed to load guests for event', event.id, ':', err.message);
+              return { data: { guests: [] } };
+            })
+        );
+        const guestsResponses = await Promise.all(guestsPromises);
+        const guests = guestsResponses.flatMap(r => r.data.guests || []);
+        console.log('Loaded total guests:', guests.length);
+        setAllGuests(guests);
 
-      // Update recent activity from checked-in guests
-      const recentCheckins = guests
-        .filter(g => g.checked_in && g.checked_in_time)
-        .sort((a, b) => new Date(b.checked_in_time) - new Date(a.checked_in_time))
-        .slice(0, 10)
-        .map(g => {
-          const event = (eventsResponse.data.events || []).find(e => e.id === g.event_id);
-          return {
-            id: g.id,
-            guestName: g.name,
-            eventName: event?.name || 'Unknown Event',
-            scanner: g.checked_in_by || activeScanner,
-            time: g.checked_in_time,
-            timestamp: new Date(g.checked_in_time).getTime()
-          };
-        });
-      setRecentActivity(recentCheckins);
+        // Update recent activity from checked-in guests
+        const recentCheckins = guests
+          .filter(g => g.checked_in && g.checked_in_time)
+          .sort((a, b) => {
+            const timeA = new Date(b.checked_in_time).getTime();
+            const timeB = new Date(a.checked_in_time).getTime();
+            return timeB - timeA;
+          })
+          .slice(0, 10)
+          .map(g => {
+            const event = events.find(e => e.id === g.event_id);
+            return {
+              id: g.id,
+              guestName: g.name,
+              eventName: event?.name || 'Unknown Event',
+              scanner: g.checked_in_by || activeScanner,
+              time: g.checked_in_time,
+              timestamp: new Date(g.checked_in_time).getTime()
+            };
+          });
+        setRecentActivity(recentCheckins);
+      } else {
+        console.log('No events to load guests for');
+        setAllGuests([]);
+        setRecentActivity([]);
+      }
     } catch (error) {
       console.error('Error loading venue data:', error);
+      setEvents([]);
+      setAllGuests([]);
+      setRecentActivity([]);
     } finally {
       setLoading(false);
     }
@@ -296,10 +343,19 @@ function VenueDashboard({ user, onLogout }) {
               : allGuests.filter(g => !g.checked_in)
           }
           onScan={(qrData) => {
+            console.log('VenueDashboard: QR Data received:', qrData);
+            console.log('VenueDashboard: All guests:', allGuests.map(g => ({ id: g.id, name: g.name })));
+            
             const guest = allGuests.find(g => g.id === qrData.guest_id);
+            console.log('VenueDashboard: Found guest:', guest);
+            
             if (guest) {
+              console.log('VenueDashboard: Calling handleCheckIn for guest ID:', guest.id);
               handleCheckIn(guest.id);
               setShowGlobalScanner(false);
+            } else {
+              console.error('VenueDashboard: Guest not found! Looking for ID:', qrData.guest_id);
+              alert(`Guest not found. QR guest_id: ${qrData.guest_id}`);
             }
           }}
           onClose={() => {
