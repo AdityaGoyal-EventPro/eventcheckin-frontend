@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { eventsAPI } from '../api';
+import { eventsAPI, venuesAPI } from '../api';
 
 function Dashboard({ user, onLogout }) {
   const [events, setEvents] = useState([]);
@@ -106,13 +106,26 @@ function CreateEventModal({ user, onClose, onSuccess }) {
     date: '',
     time_start: '',
     time_end: '',
-    venue_name: user.role === 'venue' ? user.venue_name : '',
-    venue_id: user.role === 'venue' ? user.id : null,
-    host_id: user.role === 'host' ? user.id : null,
+    venue_id: '',
+    host_id: user.id,
     expected_guests: ''
   });
+  const [venues, setVenues] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    loadVenues();
+  }, []);
+
+  const loadVenues = async () => {
+    try {
+      const response = await venuesAPI.getAll();
+      setVenues(response.data.venues || []);
+    } catch (err) {
+      console.error('Error loading venues:', err);
+    }
+  };
 
   const handleChange = (e) => {
     setFormData({
@@ -125,6 +138,12 @@ function CreateEventModal({ user, onClose, onSuccess }) {
     e.preventDefault();
     setError('');
     setLoading(true);
+
+    if (!formData.venue_id) {
+      setError('Please select a venue');
+      setLoading(false);
+      return;
+    }
 
     try {
       await eventsAPI.create(formData);
@@ -189,16 +208,28 @@ function CreateEventModal({ user, onClose, onSuccess }) {
             />
           </div>
 
-          {user.role === 'host' && (
-            <div className="form-group">
-              <label>Venue Name</label>
-              <input
-                type="text"
-                name="venue_name"
-                value={formData.venue_name}
-                onChange={handleChange}
-                placeholder="Grand Hotel Ballroom"
-                required
+          <div className="form-group">
+            <label>Select Venue</label>
+            <select
+              name="venue_id"
+              value={formData.venue_id}
+              onChange={handleChange}
+              required
+              className="form-control"
+            >
+              <option value="">-- Choose a venue --</option>
+              {venues.map(venue => (
+                <option key={venue.id} value={venue.id}>
+                  {venue.name} - {venue.city}
+                </option>
+              ))}
+            </select>
+            {venues.length === 0 && (
+              <small style={{color: '#666', marginTop: '4px', display: 'block'}}>
+                Loading venues...
+              </small>
+            )}
+          </div>
               />
             </div>
           )}
