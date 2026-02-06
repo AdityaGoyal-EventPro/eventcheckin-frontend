@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { guestsAPI, invitationsAPI } from '../api';
 import { QRCodeSVG } from 'qrcode.react';
+import CSVImport from './CSVImport';
+import WalkInModal from './WalkInModal';
+import QRScanner from './QRScanner';
 
 function EventDetails({ user, onLogout }) {
   const { eventId } = useParams();
@@ -11,6 +14,9 @@ function EventDetails({ user, onLogout }) {
   const [showAddGuest, setShowAddGuest] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [selectedGuest, setSelectedGuest] = useState(null);
+  const [showCSVImport, setShowCSVImport] = useState(false);
+  const [showWalkIn, setShowWalkIn] = useState(false);
+  const [showQRScanner, setShowQRScanner] = useState(false);
 
   useEffect(() => {
     loadGuests();
@@ -47,11 +53,20 @@ function EventDetails({ user, onLogout }) {
           <button className="btn-primary" onClick={() => setShowAddGuest(true)}>
             ➕ Add Guest
           </button>
+          <button className="btn-primary" onClick={() => setShowCSVImport(true)}>
+            📄 Import CSV
+          </button>
+          <button className="btn-primary" style={{background: '#eab308'}} onClick={() => setShowWalkIn(true)}>
+            🚶 Walk-In
+          </button>
           <button className="btn-primary" onClick={() => setShowInviteModal(true)}>
             📧 Send Invitations
           </button>
+          <button className="btn-secondary" onClick={() => setShowQRScanner(true)}>
+            📱 Scan QR
+          </button>
           <button className="btn-secondary" onClick={() => navigate(`/checkin/${eventId}`)}>
-            📱 Check-In Mode
+            🔍 Manual Search
           </button>
           <button className="btn-secondary" onClick={onLogout}>
             🚪 Logout
@@ -166,6 +181,41 @@ function EventDetails({ user, onLogout }) {
         <QRModal 
           guest={selectedGuest}
           onClose={() => setSelectedGuest(null)}
+        />
+      )}
+
+      {showCSVImport && (
+        <CSVImport
+          eventId={eventId}
+          onImportComplete={loadGuests}
+          onClose={() => setShowCSVImport(false)}
+        />
+      )}
+
+      {showWalkIn && (
+        <WalkInModal
+          eventId={eventId}
+          eventName="Current Event"
+          onClose={() => setShowWalkIn(false)}
+          onSuccess={loadGuests}
+        />
+      )}
+
+      {showQRScanner && (
+        <QRScanner
+          availableGuests={guests.filter(g => !g.checked_in)}
+          onScan={(qrData) => {
+            // Handle QR scan - check in the guest
+            const guest = guests.find(g => g.id === qrData.guest_id);
+            if (guest) {
+              guestsAPI.checkIn(guest.id, 'QR Scanner').then(() => {
+                alert(`✅ ${guest.name} checked in successfully!`);
+                loadGuests();
+                setShowQRScanner(false);
+              });
+            }
+          }}
+          onClose={() => setShowQRScanner(false)}
         />
       )}
     </div>
