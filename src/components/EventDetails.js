@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { guestsAPI, invitationsAPI } from '../api';
+import { guestsAPI, invitationsAPI, eventsAPI } from '../api';
 import { QRCodeSVG } from 'qrcode.react';
 import CSVImport from './CSVImport';
 import WalkInModal from './WalkInModal';
@@ -8,6 +8,7 @@ import QRScanner from './QRScanner';
 import SendInvitationsModal from './SendInvitationsModal';
 import CheckInSuccessDialog from './CheckInSuccessDialog';
 import GuestListMobile from './GuestListMobile';
+import EditGuestModal from './EditGuestModal';
 
 function EventDetails({ user, onLogout }) {
   const { eventId } = useParams();
@@ -23,9 +24,11 @@ function EventDetails({ user, onLogout }) {
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [checkedInGuest, setCheckedInGuest] = useState(null);
   const [event, setEvent] = useState(null);
+  const [editingGuest, setEditingGuest] = useState(null);
 
   useEffect(() => {
     loadGuests();
+    loadEventData();
   }, [eventId]);
 
   const loadGuests = async () => {
@@ -36,6 +39,15 @@ function EventDetails({ user, onLogout }) {
       console.error('Error loading guests:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadEventData = async () => {
+    try {
+      const response = await eventsAPI.getById(eventId);
+      setEvent(response.data.event);
+    } catch (error) {
+      console.error('Error loading event:', error);
     }
   };
 
@@ -56,6 +68,26 @@ function EventDetails({ user, onLogout }) {
     }
   };
 
+  const handleEditGuest = async (guestId, guestData) => {
+    try {
+      await guestsAPI.update(guestId, guestData);
+      await loadGuests();
+    } catch (error) {
+      console.error('Error updating guest:', error);
+      alert('Failed to update guest');
+    }
+  };
+
+  const handleDeleteGuest = async (guestId) => {
+    try {
+      await guestsAPI.delete(guestId);
+      await loadGuests();
+    } catch (error) {
+      console.error('Error deleting guest:', error);
+      alert('Failed to delete guest');
+    }
+  };
+
   const stats = {
     total: guests.length,
     checkedIn: guests.filter(g => g.checked_in).length,
@@ -73,17 +105,24 @@ function EventDetails({ user, onLogout }) {
         <h1 style={{ marginTop: '20px' }}>Event Guest Management</h1>
         
         <div className="header-actions">
-          <button className="btn-primary" onClick={() => setShowAddGuest(true)}>
-            ➕ Add Guest
-          </button>
-          <button className="btn-primary" onClick={() => setShowCSVImport(true)}>
-            📄 Import CSV
-          </button>
+          {/* Host-only actions */}
+          {user.role === 'host' && (
+            <>
+              <button className="btn-primary" onClick={() => setShowAddGuest(true)}>
+                ➕ Add Guest
+              </button>
+              <button className="btn-primary" onClick={() => setShowCSVImport(true)}>
+                📄 Import CSV
+              </button>
+              <button className="btn-primary" onClick={() => setShowInviteModal(true)}>
+                📧 Send Invitations
+              </button>
+            </>
+          )}
+          
+          {/* Everyone can use these */}
           <button className="btn-primary" style={{background: '#eab308'}} onClick={() => setShowWalkIn(true)}>
             🚶 Walk-In
-          </button>
-          <button className="btn-primary" onClick={() => setShowInviteModal(true)}>
-            📧 Send Invitations
           </button>
           <button className="btn-secondary" onClick={() => setShowQRScanner(true)}>
             📱 Scan QR
@@ -91,8 +130,8 @@ function EventDetails({ user, onLogout }) {
           <button className="btn-secondary" onClick={() => navigate(`/checkin/${eventId}`)}>
             🔍 Manual Search
           </button>
-          <button className="btn-secondary" onClick={onLogout}>
-            🚪 Logout
+          <button className="btn-secondary" onClick={() => navigate(-1)}>
+            ← Back
           </button>
         </div>
 
@@ -130,6 +169,8 @@ function EventDetails({ user, onLogout }) {
             guests={guests}
             onViewQR={(guest) => setSelectedGuest(guest)}
             onCheckIn={handleCheckIn}
+            onEdit={(guest) => setEditingGuest(guest)}
+            onDelete={handleDeleteGuest}
           />
         </div>
       )}
@@ -225,6 +266,14 @@ function EventDetails({ user, onLogout }) {
             setShowSuccessDialog(false);
             setCheckedInGuest(null);
           }}
+        />
+      )}
+
+      {editingGuest && (
+        <EditGuestModal
+          guest={editingGuest}
+          onClose={() => setEditingGuest(null)}
+          onSave={handleEditGuest}
         />
       )}
     </div>
