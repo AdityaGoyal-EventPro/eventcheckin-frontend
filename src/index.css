@@ -75,6 +75,15 @@ code {
   }
 }
 
+@keyframes progress-4s {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
+  }
+}
+
 .animate-fadeIn {
   animation: fadeIn 0.2s ease-out;
 }
@@ -97,6 +106,10 @@ code {
 
 .animate-progress-5s {
   animation: progress-5s 5s linear;
+}
+
+.animate-progress-4s {
+  animation: progress-4s 4s linear;
 }
 
 /* Mobile-friendly touch targets */
