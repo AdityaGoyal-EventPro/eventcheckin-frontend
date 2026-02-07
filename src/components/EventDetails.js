@@ -213,15 +213,29 @@ function EventDetails({ user, onLogout }) {
         <QRScanner
           availableGuests={guests.filter(g => !g.checked_in)}
           onScan={(qrData) => {
-            // Handle QR scan - check in the guest
+            console.log('EventDetails: Scanned QR data:', qrData);
+            console.log('EventDetails: Current event ID:', eventId);
+            
+            // VALIDATE: Guest must belong to THIS event
+            if (qrData.event_id && qrData.event_id.toString() !== eventId.toString()) {
+              alert(`❌ Wrong Event!\n\nThis guest belongs to a different event.\n\nScanned: Event ID ${qrData.event_id}\nCurrent: Event ID ${eventId}`);
+              return;
+            }
+            
+            // Find guest in THIS event's guest list
             const guest = guests.find(g => g.id === qrData.guest_id);
+            
             if (guest) {
+              console.log('EventDetails: Found guest in this event:', guest.name);
               guestsAPI.checkIn(guest.id, 'QR Scanner').then(() => {
                 setCheckedInGuest(guest);
                 setShowSuccessDialog(true);
                 loadGuests();
                 setShowQRScanner(false);
               });
+            } else {
+              console.error('EventDetails: Guest not found in this event');
+              alert('❌ Guest not found in this event!');
             }
           }}
           onClose={() => setShowQRScanner(false)}
