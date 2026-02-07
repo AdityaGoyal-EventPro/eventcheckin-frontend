@@ -5,6 +5,7 @@ import HostLogin from './components/HostLogin';
 import VenueLogin from './components/VenueLogin';
 import Login from './components/Login';
 import Signup from './components/Signup';
+import AcceptInvite from './components/AcceptInvite';
 import Dashboard from './components/Dashboard';
 import VenueDashboard from './components/VenueDashboard';
 import EventDetails from './components/EventDetails';
@@ -58,10 +59,15 @@ function App() {
           <Route 
             path="/login/venue" 
             element={user ? <Navigate to="/dashboard" /> : <VenueLogin onLogin={handleLogin} />} 
+              
           />
           <Route 
             path="/signup" 
             element={user ? <Navigate to="/dashboard" /> : <Signup onSignup={handleLogin} />} 
+          />
+          <Route 
+            path="/invite/:token" 
+            element={<AcceptInvite onLogin={handleLogin} />} 
           />
           <Route 
             path="/signup/host" 
