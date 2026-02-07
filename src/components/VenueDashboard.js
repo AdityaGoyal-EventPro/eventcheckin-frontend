@@ -19,6 +19,9 @@ function VenueDashboard({ user, onLogout }) {
   const [recentActivity, setRecentActivity] = useState([]);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [checkedInGuest, setCheckedInGuest] = useState(null);
+  const [dateFilter, setDateFilter] = useState('all'); // 'all', 'today', 'tomorrow', 'custom'
+  const [customDate, setCustomDate] = useState('');
+  const [filteredEvents, setFilteredEvents] = useState([]);
 
   useEffect(() => {
     loadVenueData();
@@ -26,6 +29,42 @@ function VenueDashboard({ user, onLogout }) {
     const interval = setInterval(loadVenueData, 5000);
     return () => clearInterval(interval);
   }, []);
+
+  // Filter events whenever events or date filter changes
+  useEffect(() => {
+    filterEvents();
+  }, [events, dateFilter, customDate]);
+
+  const filterEvents = () => {
+    if (dateFilter === 'all') {
+      setFilteredEvents(events);
+      return;
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const filtered = events.filter(event => {
+      const eventDate = new Date(event.date);
+      eventDate.setHours(0, 0, 0, 0);
+
+      if (dateFilter === 'today') {
+        return eventDate.getTime() === today.getTime();
+      } else if (dateFilter === 'tomorrow') {
+        return eventDate.getTime() === tomorrow.getTime();
+      } else if (dateFilter === 'custom' && customDate) {
+        const selectedDate = new Date(customDate);
+        selectedDate.setHours(0, 0, 0, 0);
+        return eventDate.getTime() === selectedDate.getTime();
+      }
+      return true;
+    });
+
+    setFilteredEvents(filtered);
+  };
 
   const loadVenueData = async () => {
     try {
@@ -269,13 +308,94 @@ function VenueDashboard({ user, onLogout }) {
           </div>
         </div>
 
-        {/* Today's Events */}
-        <h2 className="text-xl font-bold text-gray-900 mb-4">
-          Or scan for specific event:
-        </h2>
+        {/* Date Filter */}
+        <div className="mb-6">
+          <h2 className="text-xl font-bold text-gray-900 mb-3">
+            Events Schedule
+          </h2>
+          
+          {/* Filter Tabs */}
+          <div className="bg-white rounded-xl shadow-sm p-4 mb-4">
+            <div className="flex flex-wrap gap-2 mb-3">
+              <button
+                onClick={() => setDateFilter('all')}
+                className={`px-4 py-2 rounded-lg font-medium transition ${
+                  dateFilter === 'all'
+                    ? 'bg-purple-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                All Events
+              </button>
+              <button
+                onClick={() => setDateFilter('today')}
+                className={`px-4 py-2 rounded-lg font-medium transition ${
+                  dateFilter === 'today'
+                    ? 'bg-purple-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Today
+              </button>
+              <button
+                onClick={() => setDateFilter('tomorrow')}
+                className={`px-4 py-2 rounded-lg font-medium transition ${
+                  dateFilter === 'tomorrow'
+                    ? 'bg-purple-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Tomorrow
+              </button>
+              <button
+                onClick={() => setDateFilter('custom')}
+                className={`px-4 py-2 rounded-lg font-medium transition ${
+                  dateFilter === 'custom'
+                    ? 'bg-purple-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Custom Date
+              </button>
+            </div>
 
+            {/* Custom Date Picker */}
+            {dateFilter === 'custom' && (
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={customDate}
+                  onChange={(e) => setCustomDate(e.target.value)}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
+              </div>
+            )}
+
+            {/* Results Count */}
+            <div className="text-sm text-gray-600 mt-3">
+              Showing {filteredEvents.length} event{filteredEvents.length !== 1 ? 's' : ''}
+              {dateFilter === 'today' && ' today'}
+              {dateFilter === 'tomorrow' && ' tomorrow'}
+              {dateFilter === 'custom' && customDate && ` on ${new Date(customDate).toLocaleDateString()}`}
+            </div>
+          </div>
+        </div>
+
+        {/* Events List */}
         <div className="grid gap-4">
-          {events.map(event => {
+          {filteredEvents.length === 0 ? (
+            <div className="bg-white rounded-xl shadow-sm p-12 text-center">
+              <Clock className="w-16 h-16 text-gray-300 mx-auto mb-3" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-1">No events found</h3>
+              <p className="text-gray-500">
+                {dateFilter === 'today' && 'No events scheduled for today'}
+                {dateFilter === 'tomorrow' && 'No events scheduled for tomorrow'}
+                {dateFilter === 'custom' && 'No events on selected date'}
+                {dateFilter === 'all' && 'No events at this venue yet'}
+              </p>
+            </div>
+          ) : (
+            filteredEvents.map(event => {
             const eventStats = getEventStats(event.id);
             return (
               <div 
@@ -347,7 +467,8 @@ function VenueDashboard({ user, onLogout }) {
                 </div>
               </div>
             );
-          })}
+          })
+          )}
         </div>
 
         {events.length === 0 && (
