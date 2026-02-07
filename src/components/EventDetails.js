@@ -7,6 +7,7 @@ import WalkInModal from './WalkInModal';
 import QRScanner from './QRScanner';
 import SendInvitationsModal from './SendInvitationsModal';
 import CheckInSuccessDialog from './CheckInSuccessDialog';
+import GuestListMobile from './GuestListMobile';
 
 function EventDetails({ user, onLogout }) {
   const { eventId } = useParams();
@@ -35,6 +36,23 @@ function EventDetails({ user, onLogout }) {
       console.error('Error loading guests:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCheckIn = async (guestId) => {
+    try {
+      const guest = guests.find(g => g.id === guestId);
+      await guestsAPI.checkIn(guestId, 'Manual Check-In');
+      
+      if (guest) {
+        setCheckedInGuest(guest);
+        setShowSuccessDialog(true);
+      }
+      
+      await loadGuests();
+    } catch (error) {
+      console.error('Error checking in guest:', error);
+      alert('Failed to check in guest');
     }
   };
 
@@ -105,62 +123,14 @@ function EventDetails({ user, onLogout }) {
           <p>Loading guests...</p>
         </div>
       ) : (
-        <div className="guest-list">
-          <h2 style={{ marginBottom: '20px' }}>Guest List</h2>
+        <div className="guest-list" style={{ padding: '0 16px' }}>
+          <h2 style={{ marginBottom: '20px', fontSize: '20px', fontWeight: 'bold' }}>Guest List</h2>
           
-          {guests.length === 0 ? (
-            <p style={{ textAlign: 'center', color: '#999', padding: '40px' }}>
-              No guests added yet. Click "Add Guest" to get started!
-            </p>
-          ) : (
-            <table>
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Phone</th>
-                  <th>Category</th>
-                  <th>Plus Ones</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {guests.map(guest => (
-                  <tr key={guest.id}>
-                    <td><strong>{guest.name}</strong></td>
-                    <td>{guest.email || '-'}</td>
-                    <td>{guest.phone || '-'}</td>
-                    <td>
-                      <span className={`badge ${guest.category === 'VIP' ? 'badge-vip' : ''}`}>
-                        {guest.category}
-                      </span>
-                    </td>
-                    <td>{guest.plus_ones > 0 ? `+${guest.plus_ones}` : '-'}</td>
-                    <td>
-                      <span className={`badge ${guest.checked_in ? 'badge-success' : 'badge-pending'}`}>
-                        {guest.checked_in ? '✓ Checked In' : 'Pending'}
-                      </span>
-                      {guest.checked_in && (
-                        <div style={{ fontSize: '12px', color: '#999', marginTop: '4px' }}>
-                          {guest.checked_in_time} by {guest.checked_in_by}
-                        </div>
-                      )}
-                    </td>
-                    <td>
-                      <button 
-                        className="btn-secondary" 
-                        style={{ padding: '6px 12px', fontSize: '13px' }}
-                        onClick={() => setSelectedGuest(guest)}
-                      >
-                        View QR
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+          <GuestListMobile
+            guests={guests}
+            onViewQR={(guest) => setSelectedGuest(guest)}
+            onCheckIn={handleCheckIn}
+          />
         </div>
       )}
 
