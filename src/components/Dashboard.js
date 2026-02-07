@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { eventsAPI, venuesAPI } from '../api';
+import { eventsAPI, venuesAPI, guestsAPI } from '../api';
 
 function Dashboard({ user, onLogout }) {
   const [events, setEvents] = useState([]);
@@ -10,14 +10,39 @@ function Dashboard({ user, onLogout }) {
 
   useEffect(() => {
     loadEvents();
+    
+    // Auto-refresh every 5 seconds
+    const interval = setInterval(loadEvents, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   const loadEvents = async () => {
     try {
       const response = user.role === 'host' 
         ? await eventsAPI.getByHost(user.id)
-        : await eventsAPI.getByVenue(user.id);
-      setEvents(response.data.events);
+        : await eventsAPI.getByVenue(user.venue_id);
+      
+      const eventsData = response.data.events || [];
+      
+      // Load guest counts for each event
+      const eventsWithStats = await Promise.all(
+        eventsData.map(async (event) => {
+          try {
+            const guestsResponse = await guestsAPI.getByEvent(event.id);
+            const guests = guestsResponse.data.guests || [];
+            return {
+              ...event,
+              totalGuests: guests.length,
+              checkedInCount: guests.filter(g => g.checked_in).length
+            };
+          } catch (error) {
+            console.error(`Error loading guests for event ${event.id}:`, error);
+            return { ...event, totalGuests: 0, checkedInCount: 0 };
+          }
+        })
+      );
+      
+      setEvents(eventsWithStats);
     } catch (error) {
       console.error('Error loading events:', error);
     } finally {
@@ -88,11 +113,11 @@ function EventCard({ event, onClick }) {
       </div>
       <div className="event-stats">
         <div className="stat">
-          <div className="stat-value">{event.expected_guests || 0}</div>
-          <div className="stat-label">Expected</div>
+          <div className="stat-value">{event.totalGuests || 0}</div>
+          <div className="stat-label">Total Guests</div>
         </div>
         <div className="stat">
-          <div className="stat-value">0</div>
+          <div className="stat-value" style={{ color: '#10b981' }}>{event.checkedInCount || 0}</div>
           <div className="stat-label">Checked In</div>
         </div>
       </div>
