@@ -45,6 +45,24 @@ export const venuesAPI = {
     api.post('/api/venues/request', venueData),
 };
 
+// Invites API
+export const invitesAPI = {
+  create: (inviteData) =>
+    api.post('/api/invites/create', inviteData),
+  
+  getAll: () =>
+    api.get('/api/invites'),
+  
+  verify: (token) =>
+    api.get(`/api/invites/verify/${token}`),
+  
+  accept: (token, password) =>
+    api.post('/api/invites/accept', { token, password }),
+  
+  revoke: (inviteId) =>
+    api.post(`/api/invites/revoke/${inviteId}`),
+};
+
 // Guests API
 export const guestsAPI = {
   create: (guestData) => 
