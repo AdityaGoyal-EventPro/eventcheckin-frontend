@@ -215,18 +215,23 @@ function EventDetails({ user, onLogout }) {
           onScan={(qrData) => {
             console.log('EventDetails: Scanned QR data:', qrData);
             console.log('EventDetails: Current event ID:', eventId);
+            console.log('EventDetails: QR event_id:', qrData.event_id);
             
             // VALIDATE: Guest must belong to THIS event
-            if (qrData.event_id && qrData.event_id.toString() !== eventId.toString()) {
-              alert(`❌ Wrong Event!\n\nThis guest belongs to a different event.\n\nScanned: Event ID ${qrData.event_id}\nCurrent: Event ID ${eventId}`);
+            // Compare as strings to handle type differences
+            const scannedEventId = qrData.event_id ? qrData.event_id.toString() : null;
+            const currentEventId = eventId ? eventId.toString() : null;
+            
+            if (scannedEventId && currentEventId && scannedEventId !== currentEventId) {
+              alert(`❌ WRONG EVENT!\n\nThis guest belongs to Event ${scannedEventId}\nYou are scanning for Event ${currentEventId}\n\nPlease scan guests from this event only.`);
               return;
             }
             
             // Find guest in THIS event's guest list
-            const guest = guests.find(g => g.id === qrData.guest_id);
+            const guest = guests.find(g => g.id.toString() === qrData.guest_id.toString());
             
             if (guest) {
-              console.log('EventDetails: Found guest in this event:', guest.name);
+              console.log('✅ EventDetails: Found guest in this event:', guest.name);
               guestsAPI.checkIn(guest.id, 'QR Scanner').then(() => {
                 setCheckedInGuest(guest);
                 setShowSuccessDialog(true);
@@ -234,8 +239,8 @@ function EventDetails({ user, onLogout }) {
                 setShowQRScanner(false);
               });
             } else {
-              console.error('EventDetails: Guest not found in this event');
-              alert('❌ Guest not found in this event!');
+              console.error('❌ EventDetails: Guest not found in this event');
+              alert(`❌ Guest Not Found!\n\nGuest ID ${qrData.guest_id} is not in this event's guest list.`);
             }
           }}
           onClose={() => setShowQRScanner(false)}
