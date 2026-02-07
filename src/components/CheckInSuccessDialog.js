@@ -3,10 +3,10 @@ import { CheckCircle, X, User, Calendar, MapPin, Users, Award } from 'lucide-rea
 
 function CheckInSuccessDialog({ guest, event, onClose }) {
   useEffect(() => {
-    // Auto-close after 5 seconds (longer to see wristband)
+    // Auto-close after 4 seconds
     const timer = setTimeout(() => {
       onClose();
-    }, 5000);
+    }, 4000);
 
     return () => clearTimeout(timer);
   }, [onClose]);
@@ -36,115 +36,104 @@ function CheckInSuccessDialog({ guest, event, onClose }) {
   const colors = colorMap[wristbandColor.toLowerCase()] || colorMap.blue;
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn">
-      <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden animate-scaleIn">
-        {/* Success Icon */}
-        <div className="bg-gradient-to-br from-green-400 to-emerald-500 px-6 py-8 text-center relative">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fadeIn">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto animate-slideUp">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-green-500 to-emerald-600 p-6 text-center relative">
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition-colors"
+            className="absolute top-4 right-4 w-8 h-8 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center transition"
           >
             <X className="w-5 h-5 text-white" />
           </button>
           
-          <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce-slow">
-            <CheckCircle className="w-16 h-16 text-green-500" />
+          <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-3 animate-bounce-slow">
+            <CheckCircle className="w-10 h-10 text-green-600" />
           </div>
-          
-          <h2 className="text-2xl font-bold text-white mb-2">Check-In Successful!</h2>
-          <p className="text-green-50">Welcome to the event</p>
+          <h2 className="text-2xl font-bold text-white mb-1">Check-In Successful!</h2>
+          <p className="text-green-100 text-sm">Welcome to the event</p>
         </div>
 
-        {/* Guest Details */}
-        <div className="px-6 py-6">
-          <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-2xl p-6 mb-4">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
-                <User className="w-8 h-8 text-white" />
+        {/* Content */}
+        <div className="p-4">
+          {/* Guest Info - Compact */}
+          <div className="bg-purple-50 rounded-xl p-3 mb-3">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
+                <User className="w-6 h-6 text-white" />
               </div>
-              <div className="flex-1">
-                <h3 className="text-xl font-bold text-gray-900">{guest.name}</h3>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-lg font-bold text-gray-900 truncate">{guest.name}</h3>
                 <p className="text-sm text-gray-600">{guest.category || 'General'} Guest</p>
               </div>
             </div>
-
             {guest.plus_ones > 0 && (
-              <div className="flex items-center gap-2 text-sm text-gray-700 bg-white/60 rounded-lg px-3 py-2">
+              <div className="flex items-center gap-2 text-sm text-gray-700 bg-white/60 rounded-lg px-3 py-1.5 mt-2">
                 <Users className="w-4 h-4" />
                 <span>+{guest.plus_ones} Guest{guest.plus_ones > 1 ? 's' : ''}</span>
               </div>
             )}
           </div>
 
-          {/* WRISTBAND COLOR - BIG DISPLAY */}
-          <div className={`${colors.light} border-4 ${colors.border} rounded-2xl p-8 mb-4 text-center animate-pulse-slow`}>
-            <div className="mb-4">
-              <Award className={`w-16 h-16 ${colors.text} mx-auto animate-bounce-slow`} />
-            </div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-3">Wristband Color</h3>
-            <div className={`${colors.bg} rounded-full px-8 py-5 inline-block shadow-2xl transform hover:scale-105 transition`}>
-              <span className="text-4xl font-bold text-white uppercase tracking-wider">
+          {/* WRISTBAND - Compact but Prominent */}
+          <div className={`${colors.light} border-3 ${colors.border} rounded-xl p-4 mb-3 text-center`}>
+            <Award className={`w-10 h-10 ${colors.text} mx-auto mb-2`} />
+            <h3 className="text-sm font-semibold text-gray-900 mb-2">Wristband Color</h3>
+            <div className={`${colors.bg} rounded-full px-6 py-3 inline-block shadow-lg`}>
+              <span className="text-2xl font-bold text-white uppercase tracking-wider">
                 {wristbandColor}
               </span>
             </div>
-            <p className="text-sm text-gray-600 mt-4 font-semibold">
-              🎫 Please provide a <span className={colors.text}>{wristbandColor.toUpperCase()}</span> wristband
+            <p className="text-xs text-gray-600 mt-2 font-medium">
+              🎫 Provide a <span className={colors.text}>{wristbandColor.toUpperCase()}</span> wristband
             </p>
           </div>
 
-          {/* Event Summary */}
-          <div className="space-y-3">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                <Calendar className="w-5 h-5 text-purple-600" />
+          {/* Event Summary - Compact */}
+          <div className="space-y-2 text-sm">
+            <div className="flex items-center gap-2">
+              <div className={`w-8 h-8 ${colors.light} rounded-lg flex items-center justify-center flex-shrink-0`}>
+                <Calendar className={`w-4 h-4 ${colors.text}`} />
               </div>
-              <div>
-                <div className="text-sm font-medium text-gray-900">{event?.name || 'Event'}</div>
-                <div className="text-xs text-gray-500">{event?.date || ''} • {event?.time_start || ''}</div>
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-gray-900 truncate">{event?.name || 'Event'}</div>
+                <div className="text-xs text-gray-500 truncate">{event?.date || ''} • {event?.time_start || ''}</div>
               </div>
             </div>
 
             {event?.venue_name && (
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <MapPin className="w-5 h-5 text-blue-600" />
+              <div className="flex items-center gap-2">
+                <div className={`w-8 h-8 ${colors.light} rounded-lg flex items-center justify-center flex-shrink-0`}>
+                  <MapPin className={`w-4 h-4 ${colors.text}`} />
                 </div>
-                <div>
-                  <div className="text-sm font-medium text-gray-900">Venue</div>
-                  <div className="text-xs text-gray-500">{event.venue_name}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs text-gray-500">Venue</div>
+                  <div className="font-medium text-gray-900 truncate">{event.venue_name}</div>
                 </div>
               </div>
             )}
 
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                <CheckCircle className="w-5 h-5 text-green-600" />
+            <div className="flex items-center gap-2">
+              <div className={`w-8 h-8 ${colors.light} rounded-lg flex items-center justify-center flex-shrink-0`}>
+                <CheckCircle className={`w-4 h-4 ${colors.text}`} />
               </div>
-              <div>
-                <div className="text-sm font-medium text-gray-900">Check-In Time</div>
-                <div className="text-xs text-gray-500">{guest.checked_in_time || new Date().toLocaleTimeString()}</div>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs text-gray-500">Check-In Time</div>
+                <div className="font-medium text-gray-900">
+                  {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="px-6 pb-6">
-          <button
-            onClick={onClose}
-            className="w-full py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl font-semibold hover:from-purple-700 hover:to-blue-700 transition-all shadow-lg"
-          >
-            Done
-          </button>
-        </div>
-
-        {/* Auto-close indicator */}
-        <div className="px-6 pb-4">
-          <div className="text-center text-xs text-gray-400">
-            Auto-closing in 5 seconds...
+        {/* Auto-close indicator - Compact */}
+        <div className="px-4 pb-3">
+          <div className="text-center text-xs text-gray-400 mb-1">
+            Auto-closing in 4 seconds...
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-1 mt-2 overflow-hidden">
-            <div className="bg-gradient-to-r from-purple-500 to-blue-500 h-full animate-progress-5s"></div>
+          <div className="w-full bg-gray-200 rounded-full h-1 overflow-hidden">
+            <div className={`${colors.bg} h-full animate-progress-4s`}></div>
           </div>
         </div>
       </div>
