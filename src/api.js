@@ -31,6 +31,15 @@ export const eventsAPI = {
   
   getByVenue: (venueId) => 
     api.get(`/api/events/venue/${venueId}`),
+  
+  getById: (eventId) =>
+    api.get(`/api/events/${eventId}`),
+  
+  softDelete: (eventId, deletedBy) =>
+    api.patch(`/api/events/${eventId}/delete`, { deleted_by: deletedBy }),
+  
+  hardDelete: (eventId) =>
+    api.delete(`/api/events/${eventId}`),
 };
 
 // Venues API
@@ -73,6 +82,12 @@ export const guestsAPI = {
   
   checkIn: (guestId, scannerName) => 
     api.post(`/api/guests/${guestId}/checkin`, { scanner_name: scannerName }),
+  
+  update: (guestId, guestData) =>
+    api.patch(`/api/guests/${guestId}`, guestData),
+  
+  delete: (guestId) =>
+    api.delete(`/api/guests/${guestId}`),
 };
 
 // Invitations API
