@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Globe, Scan, Users, CheckCircle, BarChart3, Clock, Eye, Plus } from 'lucide-react';
+import { Globe, Scan, Users, Calendar, MapPin, Eye, UserPlus, Filter, Clock } from 'lucide-react';
 import { eventsAPI, guestsAPI } from '../api';
 import WalkInModal from './WalkInModal';
 import QRScanner from './QRScanner';
@@ -19,18 +19,16 @@ function VenueDashboard({ user, onLogout }) {
   const [recentActivity, setRecentActivity] = useState([]);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [checkedInGuest, setCheckedInGuest] = useState(null);
-  const [dateFilter, setDateFilter] = useState('all'); // 'all', 'today', 'tomorrow', 'custom'
+  const [dateFilter, setDateFilter] = useState('all');
   const [customDate, setCustomDate] = useState('');
   const [filteredEvents, setFilteredEvents] = useState([]);
 
   useEffect(() => {
     loadVenueData();
-    // Simulate real-time updates every 5 seconds
     const interval = setInterval(loadVenueData, 5000);
     return () => clearInterval(interval);
   }, []);
 
-  // Filter events whenever events or date filter changes
   useEffect(() => {
     filterEvents();
   }, [events, dateFilter, customDate]);
@@ -68,18 +66,15 @@ function VenueDashboard({ user, onLogout }) {
 
   const loadVenueData = async () => {
     try {
-      // Load events for THIS venue only
       let events = [];
       
       if (user.venue_id) {
-        // Venue staff sees only their venue's events
         console.log('Loading events for venue_id:', user.venue_id);
         const eventsResponse = await eventsAPI.getByVenue(user.venue_id);
         events = eventsResponse.data.events || [];
         console.log('Loaded events for venue:', events);
       } else {
         console.warn('User has no venue_id, showing all events as fallback');
-        // Fallback: show all events (should not happen in production)
         const eventsResponse = await eventsAPI.getAll();
         events = eventsResponse.data.events || [];
       }
@@ -87,52 +82,33 @@ function VenueDashboard({ user, onLogout }) {
       console.log('Final events array:', events);
       setEvents(Array.isArray(events) ? events : []);
 
-      // Load all guests for these events
-      if (Array.isArray(events) && events.length > 0) {
-        console.log('Loading guests for', events.length, 'events');
-        const guestsPromises = events.map(event =>
-          guestsAPI.getByEvent(event.id)
-            .catch((err) => {
-              console.warn('Failed to load guests for event', event.id, ':', err.message);
-              return { data: { guests: [] } };
-            })
-        );
-        const guestsResponses = await Promise.all(guestsPromises);
-        const guests = guestsResponses.flatMap(r => r.data.guests || []);
-        console.log('Loaded total guests:', guests.length);
-        setAllGuests(guests);
+      const guestsPromises = events.map(event => 
+        guestsAPI.getByEvent(event.id).catch(() => ({ data: { guests: [] } }))
+      );
+      const guestsResponses = await Promise.all(guestsPromises);
+      const allGuestsData = guestsResponses.flatMap(res => res.data.guests || []);
+      setAllGuests(allGuestsData);
 
-        // Update recent activity from checked-in guests
-        const recentCheckins = guests
-          .filter(g => g.checked_in && g.checked_in_time)
-          .sort((a, b) => {
-            const timeA = new Date(b.checked_in_time).getTime();
-            const timeB = new Date(a.checked_in_time).getTime();
-            return timeB - timeA;
-          })
-          .slice(0, 10)
-          .map(g => {
-            const event = events.find(e => e.id === g.event_id);
-            return {
-              id: g.id,
-              guestName: g.name,
-              eventName: event?.name || 'Unknown Event',
-              scanner: g.checked_in_by || activeScanner,
-              time: g.checked_in_time,
-              timestamp: new Date(g.checked_in_time).getTime()
-            };
-          });
-        setRecentActivity(recentCheckins);
-      } else {
-        console.log('No events to load guests for');
-        setAllGuests([]);
-        setRecentActivity([]);
-      }
+      const recent = allGuestsData
+        .filter(g => g.checked_in)
+        .sort((a, b) => new Date(b.checked_in_at) - new Date(b.checked_in_at))
+        .slice(0, 5)
+        .map(g => {
+          const event = events.find(e => e.id === g.event_id);
+          return {
+            id: g.id,
+            guestName: g.name,
+            eventName: event?.name || 'Unknown Event',
+            scanner: g.checked_in_by || 'Unknown',
+            time: new Date(g.checked_in_at).toLocaleTimeString([], { 
+              hour: '2-digit', 
+              minute: '2-digit' 
+            })
+          };
+        });
+      setRecentActivity(recent);
     } catch (error) {
       console.error('Error loading venue data:', error);
-      setEvents([]);
-      setAllGuests([]);
-      setRecentActivity([]);
     } finally {
       setLoading(false);
     }
@@ -142,21 +118,18 @@ function VenueDashboard({ user, onLogout }) {
     return {
       totalEvents: events.length,
       totalGuests: allGuests.length,
-      checkedIn: allGuests.filter(g => g.checked_in).length,
-      pending: allGuests.filter(g => !g.checked_in).length,
-      vip: allGuests.filter(g => g.category === 'VIP').length
+      checkedIn: allGuests.filter(g => g.checked_in).length
     };
   };
 
   const getEventStats = (eventId) => {
     const eventGuests = allGuests.filter(g => g.event_id === eventId);
+    const checkedIn = eventGuests.filter(g => g.checked_in).length;
+    const total = eventGuests.length;
     return {
-      total: eventGuests.length,
-      checkedIn: eventGuests.filter(g => g.checked_in).length,
-      pending: eventGuests.filter(g => !g.checked_in).length,
-      percentage: eventGuests.length > 0 
-        ? Math.round((eventGuests.filter(g => g.checked_in).length / eventGuests.length) * 100) 
-        : 0
+      total,
+      checkedIn,
+      percentage: total > 0 ? Math.round((checkedIn / total) * 100) : 0
     };
   };
 
@@ -188,7 +161,6 @@ function VenueDashboard({ user, onLogout }) {
       
       if (!response.ok) throw new Error('Failed to update wristband');
       
-      // Reload events to show updated color
       await loadVenueData();
     } catch (error) {
       console.error('Error assigning wristband:', error);
@@ -200,193 +172,126 @@ function VenueDashboard({ user, onLogout }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="spinner"></div>
-          <p className="mt-4 text-gray-600">Loading venue data...</p>
+          <div className="w-16 h-16 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading venue data...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 py-4">
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Venue Dashboard</h1>
-              <p className="text-sm text-gray-600">{user.venue || 'Venue Staff'}</p>
+              <p className="text-sm text-gray-600 mt-1">{user.venue_name || 'Venue Operations'}</p>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="text-right">
-                <div className="text-xs text-gray-600">Active Scanner</div>
-                <select 
-                  value={activeScanner}
-                  onChange={(e) => setActiveScanner(e.target.value)}
-                  className="px-3 py-1 border rounded-lg font-medium text-sm bg-white"
-                >
-                  <option value="Scanner 1">Scanner 1</option>
-                  <option value="Scanner 2">Scanner 2</option>
-                  <option value="Scanner 3">Scanner 3</option>
-                  <option value="Door A">Door A</option>
-                  <option value="Door B">Door B</option>
-                  <option value="Main Entrance">Main Entrance</option>
-                </select>
-              </div>
-              <button
-                onClick={onLogout}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition"
-              >
-                Logout
-              </button>
-            </div>
+            <button
+              onClick={onLogout}
+              className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition"
+            >
+              Logout
+            </button>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        {/* Real-Time Activity Feed */}
-        {recentActivity.length > 0 && (
-          <div className="bg-white rounded-xl shadow-sm p-4 mb-6 border-2 border-green-200">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-              <h3 className="font-semibold text-gray-900">Live Activity</h3>
-              <span className="text-xs text-gray-500">(All scanners)</span>
-            </div>
-            <div className="space-y-2 max-h-40 overflow-y-auto">
-              {recentActivity.slice(0, 5).map((activity) => (
-                <div key={activity.id} className="flex items-center justify-between text-sm bg-green-50 p-2 rounded">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+        {/* Global Scan Card - Airbnb Style */}
+        <div className="bg-gradient-to-br from-purple-600 via-purple-700 to-blue-700 rounded-3xl shadow-xl overflow-hidden">
+          <div className="p-6 sm:p-8">
+            <div className="flex items-start justify-between mb-6">
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center">
+                    <Globe className="w-6 h-6 text-white" />
+                  </div>
                   <div>
-                    <span className="font-medium text-gray-900">{activity.guestName}</span>
-                    <span className="text-gray-600"> • {activity.eventName}</span>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-xs text-gray-600">{activity.scanner}</div>
-                    <div className="text-xs text-gray-500">{activity.time}</div>
+                    <h2 className="text-2xl font-bold text-white">Global Scan</h2>
+                    <p className="text-purple-200 text-sm">Scan any guest at this venue</p>
                   </div>
                 </div>
-              ))}
+                
+                {/* Stats Grid */}
+                <div className="grid grid-cols-3 gap-4 mt-6">
+                  <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3">
+                    <div className="text-3xl font-bold text-white">{stats.totalEvents}</div>
+                    <div className="text-xs text-purple-200 mt-1">Events</div>
+                  </div>
+                  <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3">
+                    <div className="text-3xl font-bold text-white">{stats.totalGuests}</div>
+                    <div className="text-xs text-purple-200 mt-1">Guests</div>
+                  </div>
+                  <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3">
+                    <div className="text-3xl font-bold text-green-300">{stats.checkedIn}</div>
+                    <div className="text-xs text-purple-200 mt-1">Checked In</div>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-        )}
 
-        {/* Global Scan Section */}
-        <div className="bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl shadow-lg p-8 mb-6 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <Globe className="w-8 h-8" />
-                <h2 className="text-2xl font-bold">Global Scan Mode</h2>
-              </div>
-              <p className="text-purple-100 mb-4">Scan guests from any event at this venue</p>
-              <div className="flex gap-6 text-sm">
-                <div>
-                  <div className="font-semibold">{stats.totalEvents} Events</div>
-                  <div className="text-purple-200">At this venue</div>
-                </div>
-                <div>
-                  <div className="font-semibold">{stats.totalGuests} Guests</div>
-                  <div className="text-purple-200">Total expected</div>
-                </div>
-                <div>
-                  <div className="font-semibold">{stats.checkedIn} Checked In</div>
-                  <div className="text-purple-200">
-                    {stats.totalGuests > 0 ? Math.round((stats.checkedIn/stats.totalGuests)*100) : 0}% arrived
-                  </div>
-                </div>
-              </div>
-            </div>
+            {/* Scan Button - Full Width */}
             <button
               onClick={() => setShowGlobalScanner(true)}
-              className="px-8 py-4 bg-white text-purple-600 rounded-xl font-bold text-lg hover:bg-purple-50 transition shadow-lg flex items-center gap-2"
+              className="w-full py-4 bg-white text-purple-700 rounded-2xl font-bold text-lg hover:bg-purple-50 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-3"
             >
               <Scan className="w-6 h-6" />
-              START GLOBAL SCAN
+              Start Global Scan
             </button>
           </div>
         </div>
 
-        {/* Date Filter */}
-        <div className="mb-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-3">
-            Events Schedule
-          </h2>
-          
-          {/* Filter Tabs */}
-          <div className="bg-white rounded-xl shadow-sm p-4 mb-4">
-            <div className="flex flex-wrap gap-2 mb-3">
-              <button
-                onClick={() => setDateFilter('all')}
-                className={`px-4 py-2 rounded-lg font-medium transition ${
-                  dateFilter === 'all'
-                    ? 'bg-purple-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                All Events
-              </button>
-              <button
-                onClick={() => setDateFilter('today')}
-                className={`px-4 py-2 rounded-lg font-medium transition ${
-                  dateFilter === 'today'
-                    ? 'bg-purple-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                Today
-              </button>
-              <button
-                onClick={() => setDateFilter('tomorrow')}
-                className={`px-4 py-2 rounded-lg font-medium transition ${
-                  dateFilter === 'tomorrow'
-                    ? 'bg-purple-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                Tomorrow
-              </button>
-              <button
-                onClick={() => setDateFilter('custom')}
-                className={`px-4 py-2 rounded-lg font-medium transition ${
-                  dateFilter === 'custom'
-                    ? 'bg-purple-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                Custom Date
-              </button>
-            </div>
-
-            {/* Custom Date Picker */}
-            {dateFilter === 'custom' && (
-              <div className="flex items-center gap-2">
-                <input
-                  type="date"
-                  value={customDate}
-                  onChange={(e) => setCustomDate(e.target.value)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                />
-              </div>
-            )}
-
-            {/* Results Count */}
-            <div className="text-sm text-gray-600 mt-3">
-              Showing {filteredEvents.length} event{filteredEvents.length !== 1 ? 's' : ''}
-              {dateFilter === 'today' && ' today'}
-              {dateFilter === 'tomorrow' && ' tomorrow'}
-              {dateFilter === 'custom' && customDate && ` on ${new Date(customDate).toLocaleDateString()}`}
-            </div>
+        {/* Date Filters - Airbnb Style Pills */}
+        <div className="bg-white rounded-2xl shadow-sm p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-lg font-semibold text-gray-900">Filter Events</h3>
+            <span className="text-sm text-gray-500">{filteredEvents.length} events</span>
           </div>
+          
+          <div className="flex flex-wrap gap-2">
+            {[
+              { value: 'all', label: 'All Events' },
+              { value: 'today', label: 'Today' },
+              { value: 'tomorrow', label: 'Tomorrow' },
+              { value: 'custom', label: 'Pick Date' }
+            ].map(filter => (
+              <button
+                key={filter.value}
+                onClick={() => setDateFilter(filter.value)}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                  dateFilter === filter.value
+                    ? 'bg-purple-600 text-white shadow-md'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
+
+          {dateFilter === 'custom' && (
+            <div className="mt-3">
+              <input
+                type="date"
+                value={customDate}
+                onChange={(e) => setCustomDate(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              />
+            </div>
+          )}
         </div>
 
-        {/* Events List */}
-        <div className="grid gap-4">
+        {/* Events List - Airbnb Style Cards */}
+        <div className="space-y-4">
           {filteredEvents.length === 0 ? (
-            <div className="bg-white rounded-xl shadow-sm p-12 text-center">
-              <Clock className="w-16 h-16 text-gray-300 mx-auto mb-3" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-1">No events found</h3>
+            <div className="bg-white rounded-2xl shadow-sm p-12 text-center">
+              <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">No events found</h3>
               <p className="text-gray-500">
                 {dateFilter === 'today' && 'No events scheduled for today'}
                 {dateFilter === 'tomorrow' && 'No events scheduled for tomorrow'}
@@ -396,112 +301,111 @@ function VenueDashboard({ user, onLogout }) {
             </div>
           ) : (
             filteredEvents.map(event => {
-            const eventStats = getEventStats(event.id);
-            return (
-              <div 
-                key={event.id} 
-                className="bg-white rounded-xl shadow-sm p-6 border-2 border-gray-100 hover:border-purple-300 transition"
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="w-3 h-3 rounded-full bg-purple-500"></div>
-                      <h3 className="text-xl font-bold text-gray-900">{event.name}</h3>
+              const eventStats = getEventStats(event.id);
+              return (
+                <div
+                  key={event.id}
+                  className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow overflow-hidden border border-gray-100"
+                >
+                  <div className="p-5">
+                    {/* Event Header */}
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-lg font-bold text-gray-900 mb-2 truncate">{event.name}</h3>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 text-sm text-gray-600">
+                            <Calendar className="w-4 h-4 flex-shrink-0" />
+                            <span className="truncate">{event.date}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-gray-600">
+                            <Clock className="w-4 h-4 flex-shrink-0" />
+                            <span className="truncate">{event.time_start} - {event.time_end}</span>
+                          </div>
+                          {event.host_name && (
+                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                              <Users className="w-4 h-4 flex-shrink-0" />
+                              <span className="truncate">By {event.host_name}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Stats Badge */}
+                      <div className="ml-4 flex-shrink-0 text-right">
+                        <div className="text-3xl font-bold text-purple-600">{eventStats.percentage}%</div>
+                        <div className="text-xs text-gray-500">{eventStats.checkedIn}/{eventStats.total}</div>
+                      </div>
                     </div>
-                    <p className="text-gray-600 text-sm mb-1">
-                      📅 {event.date} • 🕐 {event.time_start} - {event.time_end}
-                    </p>
-                    <p className="text-gray-600 text-sm">
-                      👤 Organized by {event.host_name || 'Unknown'}
-                    </p>
+
+                    {/* Progress Bar */}
+                    <div className="w-full bg-gray-100 rounded-full h-2 mb-4">
+                      <div
+                        className="bg-gradient-to-r from-purple-600 to-blue-600 h-2 rounded-full transition-all duration-500"
+                        style={{ width: `${eventStats.percentage}%` }}
+                      ></div>
+                    </div>
+
+                    {/* Wristband */}
+                    <div className="mb-4">
+                      <WristbandAssignment 
+                        event={event}
+                        onColorAssigned={handleWristbandAssignment}
+                      />
+                    </div>
+
+                    {/* Action Buttons - Clean Grid */}
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        onClick={() => {
+                          setSelectedEvent(event);
+                          setShowGlobalScanner(true);
+                        }}
+                        className="flex items-center justify-center gap-2 px-3 py-3 bg-purple-600 text-white rounded-xl font-medium hover:bg-purple-700 transition text-sm"
+                      >
+                        <Scan className="w-4 h-4" />
+                        <span className="hidden sm:inline">Scan</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSelectedEvent(event);
+                          setShowWalkIn(true);
+                        }}
+                        className="flex items-center justify-center gap-2 px-3 py-3 bg-amber-500 text-white rounded-xl font-medium hover:bg-amber-600 transition text-sm"
+                      >
+                        <UserPlus className="w-4 h-4" />
+                        <span className="hidden sm:inline">Walk-In</span>
+                      </button>
+                      <button
+                        onClick={() => navigate(`/event/${event.id}`)}
+                        className="flex items-center justify-center gap-2 px-3 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition text-sm"
+                      >
+                        <Eye className="w-4 h-4" />
+                        <span className="hidden sm:inline">Details</span>
+                      </button>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-3xl font-bold text-gray-900">{eventStats.percentage}%</div>
-                    <div className="text-sm text-gray-600">{eventStats.checkedIn}/{eventStats.total}</div>
-                  </div>
                 </div>
-
-                <div className="w-full bg-gray-200 rounded-full h-2 mb-4">
-                  <div 
-                    className="bg-purple-500 h-2 rounded-full transition-all"
-                    style={{ width: `${eventStats.percentage}%` }}
-                  ></div>
-                </div>
-
-                {/* Wristband Assignment */}
-                <div className="mb-4">
-                  <WristbandAssignment 
-                    event={event}
-                    onColorAssigned={handleWristbandAssignment}
-                  />
-                </div>
-
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      setSelectedEvent(event);
-                      setShowGlobalScanner(true);
-                    }}
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition flex items-center justify-center gap-2"
-                  >
-                    <Scan className="w-4 h-4" />
-                    Scan for This Event
-                  </button>
-                  <button
-                    onClick={() => {
-                      setSelectedEvent(event);
-                      setShowWalkIn(true);
-                    }}
-                    className="px-4 py-2 bg-yellow-600 text-white rounded-lg font-medium hover:bg-yellow-700 transition flex items-center gap-2"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Walk-In
-                  </button>
-                  <button
-                    onClick={() => navigate(`/event/${event.id}`)}
-                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition flex items-center gap-2"
-                  >
-                    <Eye className="w-4 h-4" />
-                    Details
-                  </button>
-                </div>
-              </div>
-            );
-          })
+              );
+            })
           )}
         </div>
-
-        {events.length === 0 && (
-          <div className="text-center py-12 bg-white rounded-xl">
-            <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No Events Found</h3>
-            <p className="text-gray-600">There are no events at this venue yet.</p>
-          </div>
-        )}
       </div>
 
-      {/* Global QR Scanner Modal */}
+      {/* Modals */}
       {showGlobalScanner && (
         <QRScanner
-          availableGuests={
-            selectedEvent 
-              ? allGuests.filter(g => g.event_id === selectedEvent.id && !g.checked_in)
-              : allGuests.filter(g => !g.checked_in)
-          }
+          availableGuests={allGuests.filter(g => !g.checked_in)}
           onScan={(qrData) => {
-            console.log('VenueDashboard: QR Data received:', qrData);
-            console.log('VenueDashboard: All guests:', allGuests.map(g => ({ id: g.id, name: g.name })));
-            
+            console.log('VenueDashboard: QR scanned:', qrData);
             const guest = allGuests.find(g => g.id === qrData.guest_id);
-            console.log('VenueDashboard: Found guest:', guest);
-            
             if (guest) {
+              console.log('VenueDashboard: Found guest:', guest.name);
               console.log('VenueDashboard: Calling handleCheckIn for guest ID:', guest.id);
               handleCheckIn(guest.id);
               setShowGlobalScanner(false);
             } else {
-              console.error('VenueDashboard: Guest not found! Looking for ID:', qrData.guest_id);
-              alert(`Guest not found. QR guest_id: ${qrData.guest_id}`);
+              console.error('VenueDashboard: Guest not found for ID:', qrData.guest_id);
+              alert('Guest not found in venue database');
             }
           }}
           onClose={() => {
@@ -511,7 +415,6 @@ function VenueDashboard({ user, onLogout }) {
         />
       )}
 
-      {/* Walk-In Modal */}
       {showWalkIn && selectedEvent && (
         <WalkInModal
           eventId={selectedEvent.id}
@@ -524,7 +427,6 @@ function VenueDashboard({ user, onLogout }) {
         />
       )}
 
-      {/* Check-In Success Dialog */}
       {showSuccessDialog && checkedInGuest && (
         <CheckInSuccessDialog
           guest={checkedInGuest}
