@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { eventsAPI, guestsAPI } from '../api';
-import { LogoText } from './Logo';
 import GuestListMobile from './GuestListMobile';
 import EditGuestModal from './EditGuestModal';
 import CheckInSuccessDialog from './CheckInSuccessDialog';
-import { ArrowLeft, UserPlus, Upload, Mail, QrCode, Search, UserCheck } from 'lucide-react';
 
 function EventDetails({ user }) {
   const { id } = useParams();
@@ -13,9 +11,6 @@ function EventDetails({ user }) {
   const [event, setEvent] = useState(null);
   const [guests, setGuests] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showAddGuest, setShowAddGuest] = useState(false);
-  const [showImportCSV, setShowImportCSV] = useState(false);
-  const [showManualSearch, setShowManualSearch] = useState(false);
   const [showEditGuest, setShowEditGuest] = useState(false);
   const [selectedGuest, setSelectedGuest] = useState(null);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
@@ -81,7 +76,7 @@ function EventDetails({ user }) {
     walkIns: guests.filter(g => g.is_walk_in).length
   };
 
-  if (loading || !event) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -92,23 +87,30 @@ function EventDetails({ user }) {
     );
   }
 
+  if (!event) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-600">Event not found</p>
+          <button onClick={() => navigate(-1)} className="btn btn-secondary btn-md mt-4">
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => navigate(-1)}
-                className="btn btn-ghost btn-sm"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Back
-              </button>
-              <LogoText />
-            </div>
-          </div>
+          <button
+            onClick={() => navigate(-1)}
+            className="btn btn-ghost btn-sm"
+          >
+            ← Back
+          </button>
         </div>
       </div>
 
@@ -120,7 +122,7 @@ function EventDetails({ user }) {
             <span>📅 {event.date}</span>
             <span>🕐 {event.time_start} - {event.time_end}</span>
             <span>📍 {event.venue_name}</span>
-            {event.host_name && <span>👤 Organized by {event.host_name}</span>}
+            {event.host_name && <span>👤 {event.host_name}</span>}
           </div>
         </div>
 
@@ -129,32 +131,20 @@ function EventDetails({ user }) {
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Guest Management</h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <button
-                onClick={() => setShowAddGuest(true)}
-                className="btn btn-primary btn-md"
-              >
-                <UserPlus className="w-5 h-5" />
-                Add Guest
+              <button className="btn btn-primary btn-md">
+                ➕ Add Guest
               </button>
-              <button
-                onClick={() => setShowImportCSV(true)}
-                className="btn btn-secondary btn-md"
-              >
-                <Upload className="w-5 h-5" />
-                Import CSV
+              <button className="btn btn-secondary btn-md">
+                📤 Import CSV
               </button>
-              <button
-                onClick={() => alert('Coming soon!')}
-                className="btn btn-secondary btn-md"
-              >
-                <Mail className="w-5 h-5" />
-                Send Invitations
+              <button className="btn btn-secondary btn-md">
+                ✉️ Send Invitations
               </button>
             </div>
           </div>
         )}
 
-        {/* Check-In Actions - Everyone */}
+        {/* Check-In Actions */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Check-In</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -162,22 +152,13 @@ function EventDetails({ user }) {
               onClick={() => navigate(`/scan/${id}`)}
               className="btn btn-success btn-md"
             >
-              <QrCode className="w-5 h-5" />
-              Scan QR
+              📷 Scan QR
             </button>
-            <button
-              onClick={() => setShowManualSearch(true)}
-              className="btn btn-secondary btn-md"
-            >
-              <Search className="w-5 h-5" />
-              Manual Search
+            <button className="btn btn-secondary btn-md">
+              🔍 Manual Search
             </button>
-            <button
-              onClick={() => setShowAddGuest(true)}
-              className="btn btn-warning btn-md"
-            >
-              <UserCheck className="w-5 h-5" />
-              Walk-In
+            <button className="btn btn-warning btn-md">
+              🚶 Walk-In
             </button>
           </div>
         </div>
