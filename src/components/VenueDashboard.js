@@ -5,6 +5,7 @@ import { eventsAPI, guestsAPI } from '../api';
 import WalkInModal from './WalkInModal';
 import QRScanner from './QRScanner';
 import CheckInSuccessDialog from './CheckInSuccessDialog';
+import WristbandAssignment from './WristbandAssignment';
 
 function VenueDashboard({ user, onLogout }) {
   const navigate = useNavigate();
@@ -133,6 +134,26 @@ function VenueDashboard({ user, onLogout }) {
       await loadVenueData();
     } catch (error) {
       alert('Error checking in guest');
+    }
+  };
+
+  const handleWristbandAssignment = async (eventId, colorName) => {
+    try {
+      const response = await fetch(`https://eventcheckin-backend-production.up.railway.app/api/events/${eventId}/wristband`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ wristband_color: colorName })
+      });
+      
+      if (!response.ok) throw new Error('Failed to update wristband');
+      
+      // Reload events to show updated color
+      await loadVenueData();
+    } catch (error) {
+      console.error('Error assigning wristband:', error);
+      throw error;
     }
   };
 
@@ -285,6 +306,14 @@ function VenueDashboard({ user, onLogout }) {
                     className="bg-purple-500 h-2 rounded-full transition-all"
                     style={{ width: `${eventStats.percentage}%` }}
                   ></div>
+                </div>
+
+                {/* Wristband Assignment */}
+                <div className="mb-4">
+                  <WristbandAssignment 
+                    event={event}
+                    onColorAssigned={handleWristbandAssignment}
+                  />
                 </div>
 
                 <div className="flex gap-2">
