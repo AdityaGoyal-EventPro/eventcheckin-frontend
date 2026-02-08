@@ -9,8 +9,6 @@ function Dashboard({ user, onLogout }) {
 
   useEffect(() => {
     loadEvents();
-    
-    // Auto-refresh every 5 seconds
     const interval = setInterval(loadEvents, 5000);
     return () => clearInterval(interval);
   }, []);
@@ -21,12 +19,19 @@ function Dashboard({ user, onLogout }) {
         ? await eventsAPI.getByHost(user.id)
         : await eventsAPI.getByVenue(user.venue_id);
       
+      console.log('Events loaded:', response.data.events);
       setEvents(response.data.events || []);
     } catch (error) {
       console.error('Error loading events:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleEventClick = (eventId) => {
+    console.log('Navigating to event:', eventId);
+    // CRITICAL: Use template literal to ensure ID is passed
+    navigate(`/event/${eventId}`);
   };
 
   if (loading) {
@@ -74,7 +79,7 @@ function Dashboard({ user, onLogout }) {
             {events.map(event => (
               <div
                 key={event.id}
-                onClick={() => navigate(`/event/${event.id}`)}
+                onClick={() => handleEventClick(event.id)}
                 className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 cursor-pointer hover:shadow-md transition"
               >
                 <h3 className="text-xl font-bold mb-3">{event.name}</h3>
@@ -84,17 +89,31 @@ function Dashboard({ user, onLogout }) {
                   {event.venue_name && <div>📍 {event.venue_name}</div>}
                 </div>
                 <div className="flex justify-between items-center mb-3">
-                  <span className="text-2xl font-bold">{event.total_guests || 0}</span>
-                  <span className="text-2xl font-bold text-green-600">{event.checked_in_count || 0}</span>
-                </div>
-                <div className="text-xs text-gray-600 mb-2">
-                  {Math.round(((event.checked_in_count || 0) / (event.total_guests || 1)) * 100)}% checked in
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-indigo-600">
+                      {event.total_guests || 0}
+                    </div>
+                    <div className="text-xs text-gray-600">Total</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-600">
+                      {event.checked_in_count || 0}
+                    </div>
+                    <div className="text-xs text-gray-600">Checked In</div>
+                  </div>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
                   <div
                     className="bg-gradient-to-r from-indigo-600 to-purple-600 h-2 rounded-full"
-                    style={{ width: `${Math.min(((event.checked_in_count || 0) / (event.total_guests || 1)) * 100, 100)}%` }}
+                    style={{ 
+                      width: `${Math.min(((event.checked_in_count || 0) / (event.total_guests || 1)) * 100, 100)}%` 
+                    }}
                   ></div>
+                </div>
+                
+                {/* Debug info - remove after testing */}
+                <div className="mt-2 text-xs text-gray-400">
+                  ID: {event.id}
                 </div>
               </div>
             ))}
