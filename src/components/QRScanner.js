@@ -15,30 +15,49 @@ function QRScanner({ user }) {
   const [showSuccess, setShowSuccess] = useState(false);
   const [event, setEvent] = useState(null);
   const [isGlobalScan, setIsGlobalScan] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check if this is global scan (no eventId) or event-specific scan
-    if (!eventId) {
-      console.log('Global QR Scanner mode');
-      setIsGlobalScan(true);
-      // Set placeholder event for global scan
-      setEvent({ 
-        name: 'Global Scanner', 
-        venue_name: user?.venue_name || 'All Events' 
-      });
-    } else {
-      console.log('Event-specific QR Scanner mode for event:', eventId);
-      setIsGlobalScan(false);
-      loadEventData();
-    }
+    console.log('QRScanner mounted', { eventId, user: user?.name });
+    
+    // Initialize scanner mode
+    initializeScanner();
     
     return () => {
       // Cleanup scanner on unmount
       if (scanner) {
-        scanner.stop().catch(console.error);
+        console.log('Cleaning up scanner');
+        scanner.stop().catch(err => console.error('Cleanup error:', err));
       }
     };
-  }, [eventId, user]);
+  }, [eventId]);
+
+  const initializeScanner = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Check if this is global scan (no eventId) or event-specific scan
+      if (!eventId) {
+        console.log('Initializing Global QR Scanner mode');
+        setIsGlobalScan(true);
+        // Set placeholder event for global scan
+        setEvent({ 
+          name: 'Global Scanner', 
+          venue_name: user?.venue_name || 'All Events' 
+        });
+        setIsLoading(false);
+      } else {
+        console.log('Initializing Event-specific QR Scanner mode for event:', eventId);
+        setIsGlobalScan(false);
+        await loadEventData();
+        setIsLoading(false);
+      }
+    } catch (error) {
+      console.error('Error initializing scanner:', error);
+      setError('Failed to initialize scanner');
+      setIsLoading(false);
+    }
+  };
 
   const loadEventData = async () => {
     if (!eventId) return;
@@ -202,7 +221,17 @@ function QRScanner({ user }) {
         )}
       </div>
 
-      {/* Scanner Area */}
+      {/* Loading State */}
+      {isLoading ? (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-white">Initializing scanner...</p>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Scanner Area */}
       <div className="flex-1 flex flex-col items-center justify-center p-4">
         <div className="w-full max-w-md">
           {/* QR Reader Container */}
@@ -257,6 +286,8 @@ function QRScanner({ user }) {
           </div>
         </div>
       </div>
+      </>
+      )}
 
       {/* Success Dialog */}
       {showSuccess && checkedInGuest && event && (
