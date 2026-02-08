@@ -135,7 +135,11 @@ function AdminDashboard({ user, onLogout }) {
       {/* Content */}
       <div className="max-w-7xl mx-auto px-4 py-8">
         {activeTab === 'overview' && (
-          <OverviewTab stats={stats} recentActivity={recentActivity} />
+          <OverviewTab 
+            stats={stats} 
+            recentActivity={recentActivity}
+            onSwitchTab={setActiveTab}
+          />
         )}
         {activeTab === 'venues' && (
           <VenueManagement user={user} />
@@ -151,7 +155,7 @@ function AdminDashboard({ user, onLogout }) {
 // ============================================
 // OVERVIEW TAB
 // ============================================
-function OverviewTab({ stats, recentActivity }) {
+function OverviewTab({ stats, recentActivity, onSwitchTab }) {
   const statCards = [
     {
       label: 'Total Users',
@@ -235,7 +239,10 @@ function OverviewTab({ stats, recentActivity }) {
       <div>
         <h2 className="text-2xl font-bold text-gray-900 mb-6">Quick Actions</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <button className="bg-white border-2 border-gray-200 hover:border-indigo-500 rounded-xl p-6 text-left transition group">
+          <button 
+            onClick={() => onSwitchTab('venues')}
+            className="bg-white border-2 border-gray-200 hover:border-indigo-500 rounded-xl p-6 text-left transition group"
+          >
             <div className="w-12 h-12 bg-indigo-100 group-hover:bg-indigo-600 rounded-lg flex items-center justify-center mb-4 transition">
               <Plus className="w-6 h-6 text-indigo-600 group-hover:text-white transition" />
             </div>
@@ -243,7 +250,10 @@ function OverviewTab({ stats, recentActivity }) {
             <p className="text-sm text-gray-600">Add a new venue location</p>
           </button>
 
-          <button className="bg-white border-2 border-gray-200 hover:border-indigo-500 rounded-xl p-6 text-left transition group">
+          <button 
+            onClick={() => onSwitchTab('users')}
+            className="bg-white border-2 border-gray-200 hover:border-indigo-500 rounded-xl p-6 text-left transition group"
+          >
             <div className="w-12 h-12 bg-purple-100 group-hover:bg-purple-600 rounded-lg flex items-center justify-center mb-4 transition">
               <Users className="w-6 h-6 text-purple-600 group-hover:text-white transition" />
             </div>
