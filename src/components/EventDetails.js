@@ -11,6 +11,7 @@ function EventDetails({ user }) {
   const [event, setEvent] = useState(null);
   const [guests, setGuests] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   
   // Modal states
   const [showEditGuest, setShowEditGuest] = useState(false);
@@ -26,27 +27,30 @@ function EventDetails({ user }) {
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    loadEventData();
-    loadGuests();
+    loadData();
   }, [id]);
 
-  const loadEventData = async () => {
+  const loadData = async () => {
+    setLoading(true);
+    setError(null);
+    
     try {
-      const response = await eventsAPI.getById(id);
-      if (response.data && response.data.event) {
-        setEvent(response.data.event);
-      }
-    } catch (error) {
-      console.error('Error loading event:', error);
-    }
-  };
+      // Load both in parallel
+      const [eventResponse, guestsResponse] = await Promise.all([
+        eventsAPI.getById(id),
+        guestsAPI.getByEvent(id)
+      ]);
 
-  const loadGuests = async () => {
-    try {
-      const response = await guestsAPI.getByEvent(id);
-      setGuests(response.data.guests || []);
+      if (eventResponse.data && eventResponse.data.event) {
+        setEvent(eventResponse.data.event);
+      } else {
+        setError('Event not found');
+      }
+
+      setGuests(guestsResponse.data.guests || []);
     } catch (error) {
-      console.error('Error loading guests:', error);
+      console.error('Error loading data:', error);
+      setError('Failed to load event');
     } finally {
       setLoading(false);
     }
@@ -57,7 +61,8 @@ function EventDetails({ user }) {
       await guestsAPI.checkIn(guest.id);
       setCheckedInGuest(guest);
       setShowSuccessDialog(true);
-      loadGuests();
+      setShowManualSearch(false); // Close search modal
+      loadData(); // Reload to update counts
     } catch (error) {
       alert('Check-in failed');
     }
@@ -73,7 +78,7 @@ function EventDetails({ user }) {
     
     try {
       await guestsAPI.delete(guestId);
-      loadGuests();
+      loadData();
     } catch (error) {
       alert('Failed to delete guest');
     }
@@ -101,17 +106,35 @@ function EventDetails({ user }) {
     walkIns: guests.filter(g => g.is_walk_in).length
   };
 
-  if (loading || !event) {
+  // LOADING STATE - Show spinner
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+          <p className="text-gray-600">Loading event...</p>
         </div>
       </div>
     );
   }
 
+  // ERROR STATE - Show error
+  if (error || !event) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full text-center">
+          <div className="text-gray-400 text-6xl mb-4">📋</div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Event Not Found</h2>
+          <p className="text-gray-600 mb-6">{error || 'This event doesn\'t exist or you don\'t have access to it.'}</p>
+          <button onClick={() => navigate('/')} className="btn btn-primary w-full">
+            ← Back to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // SUCCESS STATE - Show event
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -160,7 +183,13 @@ function EventDetails({ user }) {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Check-In</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <button onClick={() => navigate(`/scan/${id}`)} className="btn btn-success btn-md">
+            <button 
+              onClick={() => {
+                console.log('Navigating to QR scanner for event:', id);
+                navigate(`/scan/${id}`);
+              }} 
+              className="btn btn-success btn-md"
+            >
               📷 Scan QR
             </button>
             <button onClick={() => setShowManualSearch(true)} className="btn btn-secondary btn-md">
@@ -195,7 +224,7 @@ function EventDetails({ user }) {
         {/* Guest List */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="p-6 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">Guest List</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Guest List ({guests.length})</h2>
           </div>
           <GuestListMobile
             guests={guests}
@@ -208,31 +237,28 @@ function EventDetails({ user }) {
 
       {/* ALL MODALS */}
       
-      {/* Add Guest Modal */}
       {showAddGuest && (
         <AddGuestModal
           eventId={id}
           onClose={() => setShowAddGuest(false)}
           onSuccess={() => {
             setShowAddGuest(false);
-            loadGuests();
+            loadData();
           }}
         />
       )}
 
-      {/* Import CSV Modal */}
       {showImportCSV && (
         <ImportCSVModal
           eventId={id}
           onClose={() => setShowImportCSV(false)}
           onSuccess={() => {
             setShowImportCSV(false);
-            loadGuests();
+            loadData();
           }}
         />
       )}
 
-      {/* Manual Search Modal */}
       {showManualSearch && (
         <ManualSearchModal
           guests={guests}
@@ -241,19 +267,19 @@ function EventDetails({ user }) {
         />
       )}
 
-      {/* Walk-In Modal */}
       {showWalkIn && (
         <WalkInModal
           eventId={id}
           onClose={() => setShowWalkIn(false)}
-          onSuccess={() => {
+          onSuccess={(newGuest) => {
             setShowWalkIn(false);
-            loadGuests();
+            setCheckedInGuest(newGuest);
+            setShowSuccessDialog(true);
+            loadData();
           }}
         />
       )}
 
-      {/* Edit Guest Modal */}
       {showEditGuest && selectedGuest && (
         <EditGuestModal
           guest={selectedGuest}
@@ -264,12 +290,11 @@ function EventDetails({ user }) {
           onSave={() => {
             setShowEditGuest(false);
             setSelectedGuest(null);
-            loadGuests();
+            loadData();
           }}
         />
       )}
 
-      {/* Check-In Success Dialog */}
       {showSuccessDialog && checkedInGuest && (
         <CheckInSuccessDialog
           guest={checkedInGuest}
@@ -281,7 +306,6 @@ function EventDetails({ user }) {
         />
       )}
 
-      {/* Delete Event Confirmation */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
@@ -388,7 +412,7 @@ function AddGuestModal({ eventId, onClose, onSuccess }) {
               type="number"
               min="0"
               value={formData.plus_ones}
-              onChange={(e) => setFormData({...formData, plus_ones: parseInt(e.target.value)})}
+              onChange={(e) => setFormData({...formData, plus_ones: parseInt(e.target.value) || 0})}
               className="w-full px-4 py-3 border rounded-lg"
             />
           </div>
@@ -424,6 +448,7 @@ function ImportCSVModal({ eventId, onClose, onSuccess }) {
         const rows = text.split('\n').filter(row => row.trim());
         const headers = rows[0].split(',').map(h => h.trim().toLowerCase());
         
+        let imported = 0;
         for (let i = 1; i < rows.length; i++) {
           const values = rows[i].split(',').map(v => v.trim());
           const guest = {
@@ -436,10 +461,11 @@ function ImportCSVModal({ eventId, onClose, onSuccess }) {
           
           if (guest.name) {
             await guestsAPI.create(guest);
+            imported++;
           }
         }
         
-        alert('Guests imported successfully!');
+        alert(`${imported} guests imported successfully!`);
         onSuccess();
       } catch (error) {
         alert('Failed to import CSV');
@@ -486,19 +512,20 @@ function ManualSearchModal({ guests, onClose, onCheckIn }) {
   
   const filtered = guests.filter(g =>
     g.name.toLowerCase().includes(search.toLowerCase()) ||
-    g.email?.toLowerCase().includes(search.toLowerCase())
+    g.email?.toLowerCase().includes(search.toLowerCase()) ||
+    g.phone?.includes(search)
   );
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden">
         <div className="p-6 border-b">
-          <h2 className="text-2xl font-bold mb-4">Manual Search</h2>
+          <h2 className="text-2xl font-bold mb-4">Manual Search & Check-In</h2>
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name or email..."
+            placeholder="Search by name, email, or phone..."
             className="w-full px-4 py-3 border rounded-lg"
             autoFocus
           />
@@ -509,18 +536,19 @@ function ManualSearchModal({ guests, onClose, onCheckIn }) {
           ) : (
             <div className="space-y-3">
               {filtered.map(guest => (
-                <div key={guest.id} className="border rounded-lg p-4 flex justify-between items-center">
+                <div key={guest.id} className="border rounded-lg p-4 flex justify-between items-center hover:bg-gray-50">
                   <div>
                     <div className="font-semibold">{guest.name}</div>
                     <div className="text-sm text-gray-600">{guest.email}</div>
-                    {guest.checked_in && <span className="text-xs text-green-600">✓ Checked In</span>}
+                    {guest.checked_in && (
+                      <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded mt-1 inline-block">
+                        ✓ Checked In
+                      </span>
+                    )}
                   </div>
                   {!guest.checked_in && (
                     <button
-                      onClick={() => {
-                        onCheckIn(guest);
-                        onClose();
-                      }}
+                      onClick={() => onCheckIn(guest)}
                       className="btn btn-success btn-sm"
                     >
                       Check In
@@ -551,15 +579,18 @@ function WalkInModal({ eventId, onClose, onSuccess }) {
     setLoading(true);
 
     try {
-      const guest = await guestsAPI.create({
+      const response = await guestsAPI.create({
         event_id: eventId,
         name: name,
         is_walk_in: true,
         category: 'General'
       });
       
-      await guestsAPI.checkIn(guest.data.guest.id);
-      onSuccess();
+      const newGuest = response.data.guest;
+      await guestsAPI.checkIn(newGuest.id);
+      
+      // Pass the guest back for success dialog
+      onSuccess({ ...newGuest, checked_in: true });
     } catch (error) {
       alert('Failed to add walk-in');
     } finally {
@@ -571,6 +602,7 @@ function WalkInModal({ eventId, onClose, onSuccess }) {
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
         <h2 className="text-2xl font-bold mb-4">Walk-In Guest</h2>
+        <p className="text-sm text-gray-600 mb-4">Add and check in a guest who arrived without an invitation.</p>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-1">Guest Name *</label>
@@ -587,7 +619,7 @@ function WalkInModal({ eventId, onClose, onSuccess }) {
           <div className="flex gap-3">
             <button type="button" onClick={onClose} className="btn btn-secondary flex-1">Cancel</button>
             <button type="submit" className="btn btn-primary flex-1" disabled={loading}>
-              {loading ? 'Adding...' : 'Check In'}
+              {loading ? 'Processing...' : 'Add & Check In'}
             </button>
           </div>
         </form>
