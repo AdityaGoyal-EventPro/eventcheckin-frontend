@@ -1,15 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Camera, Search, Download, RefreshCw, Check, X, Plus, Upload, Mail, UserPlus, Edit2, Trash2 } from 'lucide-react';
+import { ArrowLeft, Camera, Search, RefreshCw, Check, X, Plus, UserPlus, Edit2, Trash2 } from 'lucide-react';
 import { eventsAPI, guestsAPI } from '../api';
-import AddGuestModal from './AddGuestModal';
-import ImportCSVModal from './ImportCSVModal';
-import SendInvitationsModal from './SendInvitationsModal';
-import WalkInModal from './WalkInModal';
 import EditGuestModal from './EditGuestModal';
 import CheckInSuccessDialog from './CheckInSuccessDialog';
 
-function EventDetailsComplete({ user }) {
+function EventDetails({ user }) {
   const { id: eventId } = useParams();
   const navigate = useNavigate();
   const [event, setEvent] = useState(null);
@@ -18,14 +14,15 @@ function EventDetailsComplete({ user }) {
   const [refreshing, setRefreshing] = useState(false);
   
   // Modal states
-  const [showAddGuest, setShowAddGuest] = useState(false);
-  const [showImportCSV, setShowImportCSV] = useState(false);
-  const [showSendInvitations, setShowSendInvitations] = useState(false);
-  const [showWalkIn, setShowWalkIn] = useState(false);
   const [showEditGuest, setShowEditGuest] = useState(false);
+  const [showWalkInForm, setShowWalkInForm] = useState(false);
   const [selectedGuest, setSelectedGuest] = useState(null);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [checkedInGuest, setCheckedInGuest] = useState(null);
+  
+  // Walk-in form state
+  const [walkInData, setWalkInData] = useState({ name: '', email: '', phone: '' });
+  const [submittingWalkIn, setSubmittingWalkIn] = useState(false);
   
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState('');
@@ -102,6 +99,33 @@ function EventDetailsComplete({ user }) {
       loadEventData();
     } catch (error) {
       alert('Failed to delete guest');
+    }
+  };
+
+  const handleWalkInSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!walkInData.name.trim()) {
+      alert('Guest name is required');
+      return;
+    }
+
+    setSubmittingWalkIn(true);
+
+    try {
+      const response = await guestsAPI.addWalkIn(eventId, walkInData);
+      const newGuest = response.data.guest;
+      
+      setWalkInData({ name: '', email: '', phone: '' });
+      setShowWalkInForm(false);
+      setCheckedInGuest(newGuest);
+      setShowSuccessDialog(true);
+      loadEventData();
+    } catch (error) {
+      console.error('Walk-in error:', error);
+      alert('Failed to register walk-in guest');
+    } finally {
+      setSubmittingWalkIn(false);
     }
   };
 
@@ -215,47 +239,11 @@ function EventDetailsComplete({ user }) {
           </div>
         </div>
 
-        {/* Action Buttons - Host gets all, Venue gets Walk-In only */}
-        {isHost ? (
-          // Full action buttons for hosts
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <button
-              onClick={() => setShowAddGuest(true)}
-              className="flex items-center justify-center gap-2 bg-white border-2 border-gray-200 hover:border-indigo-500 rounded-xl p-4 transition"
-            >
-              <Plus className="w-5 h-5 text-indigo-600" />
-              <span className="font-medium">Add Guest</span>
-            </button>
-
-            <button
-              onClick={() => setShowImportCSV(true)}
-              className="flex items-center justify-center gap-2 bg-white border-2 border-gray-200 hover:border-indigo-500 rounded-xl p-4 transition"
-            >
-              <Upload className="w-5 h-5 text-indigo-600" />
-              <span className="font-medium">Import CSV</span>
-            </button>
-
-            <button
-              onClick={() => setShowSendInvitations(true)}
-              className="flex items-center justify-center gap-2 bg-white border-2 border-gray-200 hover:border-indigo-500 rounded-xl p-4 transition"
-            >
-              <Mail className="w-5 h-5 text-indigo-600" />
-              <span className="font-medium">Send Invites</span>
-            </button>
-
-            <button
-              onClick={() => setShowWalkIn(true)}
-              className="flex items-center justify-center gap-2 bg-white border-2 border-gray-200 hover:border-indigo-500 rounded-xl p-4 transition"
-            >
-              <UserPlus className="w-5 h-5 text-indigo-600" />
-              <span className="font-medium">Walk-In</span>
-            </button>
-          </div>
-        ) : isVenue && (
-          // Walk-In only for venue staff
+        {/* Walk-In Button - For Both Hosts and Venue */}
+        {(isHost || isVenue) && (
           <div className="mb-8">
             <button
-              onClick={() => setShowWalkIn(true)}
+              onClick={() => setShowWalkInForm(true)}
               className="w-full md:w-auto flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-semibold px-6 py-4 rounded-xl hover:from-purple-700 hover:to-indigo-700 transition shadow-lg"
             >
               <UserPlus className="w-6 h-6" />
@@ -371,7 +359,6 @@ function EventDetailsComplete({ user }) {
                     </div>
 
                     <div className="flex items-center gap-2 ml-4">
-                      {/* Manual Check-In - For all users */}
                       {!guest.checked_in && (
                         <button
                           onClick={() => handleManualCheckIn(guest.id, guest.name)}
@@ -392,7 +379,6 @@ function EventDetailsComplete({ user }) {
                         </button>
                       )}
 
-                      {/* Edit/Delete - Only for hosts */}
                       {isHost && (
                         <>
                           <button
@@ -420,71 +406,94 @@ function EventDetailsComplete({ user }) {
         </div>
       </div>
 
-      {/* Modals - Only for Hosts */}
-      {isHost && (
-        <>
-          {showAddGuest && (
-            <AddGuestModal
-              eventId={eventId}
-              onClose={() => setShowAddGuest(false)}
-              onGuestAdded={() => {
-                setShowAddGuest(false);
-                loadEventData();
-              }}
-            />
-          )}
+      {/* Walk-In Form Modal */}
+      {showWalkInForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6">
+            <h2 className="text-2xl font-bold mb-4">Register Walk-In Guest</h2>
+            
+            <form onSubmit={handleWalkInSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Guest Name *
+                </label>
+                <input
+                  type="text"
+                  value={walkInData.name}
+                  onChange={(e) => setWalkInData({...walkInData, name: e.target.value})}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  placeholder="Enter guest name"
+                  required
+                />
+              </div>
 
-          {showImportCSV && (
-            <ImportCSVModal
-              eventId={eventId}
-              onClose={() => setShowImportCSV(false)}
-              onImportComplete={() => {
-                setShowImportCSV(false);
-                loadEventData();
-              }}
-            />
-          )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email (Optional)
+                </label>
+                <input
+                  type="email"
+                  value={walkInData.email}
+                  onChange={(e) => setWalkInData({...walkInData, email: e.target.value})}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  placeholder="guest@email.com"
+                />
+              </div>
 
-          {showSendInvitations && (
-            <SendInvitationsModal
-              eventId={eventId}
-              event={event}
-              guests={guests}
-              onClose={() => setShowSendInvitations(false)}
-            />
-          )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Phone (Optional)
+                </label>
+                <input
+                  type="tel"
+                  value={walkInData.phone}
+                  onChange={(e) => setWalkInData({...walkInData, phone: e.target.value})}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  placeholder="+1234567890"
+                />
+              </div>
 
-          {showEditGuest && selectedGuest && (
-            <EditGuestModal
-              guest={selectedGuest}
-              onClose={() => {
-                setShowEditGuest(false);
-                setSelectedGuest(null);
-              }}
-              onGuestUpdated={() => {
-                setShowEditGuest(false);
-                setSelectedGuest(null);
-                loadEventData();
-              }}
-            />
-          )}
-        </>
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowWalkInForm(false);
+                    setWalkInData({ name: '', email: '', phone: '' });
+                  }}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingWalkIn}
+                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition disabled:opacity-50"
+                >
+                  {submittingWalkIn ? 'Adding...' : 'Add & Check In'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
-      {/* Walk-In Modal - For Both Hosts AND Venue */}
-      {showWalkIn && (
-        <WalkInModal
-          eventId={eventId}
-          onClose={() => setShowWalkIn(false)}
-          onWalkInAdded={(guest) => {
-            setShowWalkIn(false);
-            setCheckedInGuest(guest);
-            setShowSuccessDialog(true);
+      {/* Edit Guest Modal */}
+      {showEditGuest && selectedGuest && (
+        <EditGuestModal
+          guest={selectedGuest}
+          onClose={() => {
+            setShowEditGuest(false);
+            setSelectedGuest(null);
+          }}
+          onGuestUpdated={() => {
+            setShowEditGuest(false);
+            setSelectedGuest(null);
             loadEventData();
           }}
         />
       )}
 
+      {/* Success Dialog */}
       {showSuccessDialog && checkedInGuest && (
         <CheckInSuccessDialog
           guest={checkedInGuest}
@@ -498,4 +507,4 @@ function EventDetailsComplete({ user }) {
   );
 }
 
-export default EventDetailsComplete;
+export default EventDetails;
