@@ -74,6 +74,11 @@ function QRScanner({ user }) {
   const handleScanSuccess = async (decodedText) => {
     console.log('QR Code scanned:', decodedText);
     
+    // Pause scanning temporarily to prevent multiple scans
+    if (scanner && scanning) {
+      await scanner.pause(true);
+    }
+    
     try {
       // Parse QR code data
       const qrData = JSON.parse(decodedText);
@@ -81,13 +86,14 @@ function QRScanner({ user }) {
 
       if (!guestId) {
         setError('Invalid QR code');
+        // Resume scanning after 2 seconds
+        setTimeout(() => {
+          if (scanner) scanner.resume();
+        }, 2000);
         return;
       }
 
-      // Stop scanner before check-in
-      await stopScanner();
-
-      // Perform check-in
+      // Perform check-in (scanner still paused)
       await guestsAPI.checkIn(guestId);
 
       // Get guest details
@@ -97,13 +103,17 @@ function QRScanner({ user }) {
       if (guest) {
         setCheckedInGuest(guest);
         setShowSuccess(true);
+        // Scanner will resume when success dialog closes
       }
 
     } catch (error) {
       console.error('Check-in error:', error);
       setError('Check-in failed. Please try again.');
-      // Restart scanner after error
-      setTimeout(() => startScanner(), 2000);
+      // Resume scanner after error
+      setTimeout(() => {
+        if (scanner) scanner.resume();
+        setError('');
+      }, 2000);
     }
   };
 
@@ -119,8 +129,10 @@ function QRScanner({ user }) {
   const handleSuccessClose = () => {
     setShowSuccess(false);
     setCheckedInGuest(null);
-    // Restart scanner for next guest
-    startScanner();
+    // Resume scanner for next guest (don't restart, just resume)
+    if (scanner) {
+      scanner.resume();
+    }
   };
 
   return (
