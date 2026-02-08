@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { authAPI } from '../api';
+import React, { useState, useEffect } from 'react';
+import { authAPI, venuesAPI } from '../api';
 import { AlertCircle, Sparkles } from 'lucide-react';
 
 function Login({ onLogin }) {
@@ -8,14 +8,39 @@ function Login({ onLogin }) {
     email: '',
     password: '',
     name: '',
-    role: 'host'
+    role: 'host',
+    venue_id: ''
   });
+  const [venues, setVenues] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Load venues when switching to signup mode and selecting venue role
+  useEffect(() => {
+    if (!isLogin && formData.role === 'venue') {
+      loadVenues();
+    }
+  }, [isLogin, formData.role]);
+
+  const loadVenues = async () => {
+    try {
+      const response = await venuesAPI.getAll();
+      setVenues(response.data.venues || []);
+    } catch (error) {
+      console.error('Error loading venues:', error);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+
+    // Validation for venue users
+    if (!isLogin && formData.role === 'venue' && !formData.venue_id) {
+      setError('Please select a venue');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -24,9 +49,11 @@ function Login({ onLogin }) {
         : await authAPI.signup(formData);
 
       if (response.data.user) {
+        console.log('Login successful, user:', response.data.user);
         onLogin(response.data.user);
       }
     } catch (err) {
+      console.error('Auth error:', err);
       setError(err.response?.data?.error || 'Authentication failed');
     } finally {
       setLoading(false);
@@ -76,11 +103,11 @@ function Login({ onLogin }) {
               </div>
             )}
 
-            {/* Name Field (Signup only) - NO ICON */}
+            {/* Name Field (Signup only) */}
             {!isLogin && (
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Full Name
+                  Full Name *
                 </label>
                 <input
                   type="text"
@@ -93,10 +120,10 @@ function Login({ onLogin }) {
               </div>
             )}
 
-            {/* Email Field - NO ICON */}
+            {/* Email Field */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Email Address
+                Email Address *
               </label>
               <input
                 type="email"
@@ -109,10 +136,10 @@ function Login({ onLogin }) {
               />
             </div>
 
-            {/* Password Field - NO ICON */}
+            {/* Password Field */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Password
+                Password *
               </label>
               <input
                 type="password"
@@ -127,26 +154,63 @@ function Login({ onLogin }) {
 
             {/* Role Selection (Signup only) */}
             {!isLogin && (
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  I am a
-                </label>
-                <select
-                  value={formData.role}
-                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                  className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-gray-900 text-base appearance-none cursor-pointer bg-white"
-                  style={{
-                    backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
-                    backgroundPosition: 'right 0.5rem center',
-                    backgroundRepeat: 'no-repeat',
-                    backgroundSize: '1.5em 1.5em',
-                    paddingRight: '2.5rem'
-                  }}
-                >
-                  <option value="host">Event Host</option>
-                  <option value="venue">Venue Manager</option>
-                </select>
-              </div>
+              <>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    I am a *
+                  </label>
+                  <select
+                    value={formData.role}
+                    onChange={(e) => setFormData({ ...formData, role: e.target.value, venue_id: '' })}
+                    className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-gray-900 text-base appearance-none cursor-pointer bg-white"
+                    style={{
+                      backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                      backgroundPosition: 'right 0.5rem center',
+                      backgroundRepeat: 'no-repeat',
+                      backgroundSize: '1.5em 1.5em',
+                      paddingRight: '2.5rem'
+                    }}
+                  >
+                    <option value="host">Event Host</option>
+                    <option value="venue">Venue Manager</option>
+                  </select>
+                </div>
+
+                {/* Venue Selection (Venue role only) */}
+                {formData.role === 'venue' && (
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Select Your Venue *
+                    </label>
+                    {venues.length === 0 ? (
+                      <div className="text-sm text-gray-600 p-4 bg-gray-50 rounded-xl">
+                        Loading venues...
+                      </div>
+                    ) : (
+                      <select
+                        value={formData.venue_id}
+                        onChange={(e) => setFormData({ ...formData, venue_id: e.target.value })}
+                        required
+                        className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-gray-900 text-base appearance-none cursor-pointer bg-white"
+                        style={{
+                          backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                          backgroundPosition: 'right 0.5rem center',
+                          backgroundRepeat: 'no-repeat',
+                          backgroundSize: '1.5em 1.5em',
+                          paddingRight: '2.5rem'
+                        }}
+                      >
+                        <option value="">-- Select a venue --</option>
+                        {venues.map(venue => (
+                          <option key={venue.id} value={venue.id}>
+                            {venue.name} - {venue.city}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                )}
+              </>
             )}
 
             {/* Submit Button */}
@@ -187,7 +251,7 @@ function Login({ onLogin }) {
               onClick={() => {
                 setIsLogin(!isLogin);
                 setError('');
-                setFormData({ email: '', password: '', name: '', role: 'host' });
+                setFormData({ email: '', password: '', name: '', role: 'host', venue_id: '' });
               }}
               className="w-full mt-4 bg-white border-2 border-gray-300 text-gray-700 font-semibold py-3.5 rounded-xl hover:bg-gray-50 hover:border-indigo-500 transition text-base"
             >
