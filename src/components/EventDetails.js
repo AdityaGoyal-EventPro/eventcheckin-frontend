@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { eventsAPI, guestsAPI } from '../api';
+import { eventsAPI, guestsAPI, invitationsAPI } from '../api';
 import GuestListMobile from './GuestListMobile';
 import EditGuestModal from './EditGuestModal';
 import CheckInSuccessDialog from './CheckInSuccessDialog';
@@ -17,6 +17,7 @@ function EventDetails({ user }) {
   const [showEditGuest, setShowEditGuest] = useState(false);
   const [showAddGuest, setShowAddGuest] = useState(false);
   const [showImportCSV, setShowImportCSV] = useState(false);
+  const [showSendInvitations, setShowSendInvitations] = useState(false);
   const [showManualSearch, setShowManualSearch] = useState(false);
   const [showWalkIn, setShowWalkIn] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -35,7 +36,6 @@ function EventDetails({ user }) {
     setError(null);
     
     try {
-      // Load both in parallel
       const [eventResponse, guestsResponse] = await Promise.all([
         eventsAPI.getById(id),
         guestsAPI.getByEvent(id)
@@ -61,8 +61,8 @@ function EventDetails({ user }) {
       await guestsAPI.checkIn(guest.id);
       setCheckedInGuest(guest);
       setShowSuccessDialog(true);
-      setShowManualSearch(false); // Close search modal
-      loadData(); // Reload to update counts
+      setShowManualSearch(false);
+      loadData();
     } catch (error) {
       alert('Check-in failed');
     }
@@ -106,7 +106,6 @@ function EventDetails({ user }) {
     walkIns: guests.filter(g => g.is_walk_in).length
   };
 
-  // LOADING STATE - Show spinner
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -118,7 +117,6 @@ function EventDetails({ user }) {
     );
   }
 
-  // ERROR STATE - Show error
   if (error || !event) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -134,7 +132,6 @@ function EventDetails({ user }) {
     );
   }
 
-  // SUCCESS STATE - Show event
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -172,7 +169,7 @@ function EventDetails({ user }) {
               <button onClick={() => setShowImportCSV(true)} className="btn btn-secondary btn-md">
                 📤 Import CSV
               </button>
-              <button onClick={() => alert('Email invitations feature coming soon!')} className="btn btn-secondary btn-md">
+              <button onClick={() => setShowSendInvitations(true)} className="btn btn-secondary btn-md">
                 ✉️ Send Invitations
               </button>
             </div>
@@ -183,13 +180,7 @@ function EventDetails({ user }) {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Check-In</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <button 
-              onClick={() => {
-                console.log('Navigating to QR scanner for event:', id);
-                navigate(`/scan/${id}`);
-              }} 
-              className="btn btn-success btn-md"
-            >
+            <button onClick={() => navigate(`/scan/${id}`)} className="btn btn-success btn-md">
               📷 Scan QR
             </button>
             <button onClick={() => setShowManualSearch(true)} className="btn btn-secondary btn-md">
@@ -259,6 +250,14 @@ function EventDetails({ user }) {
         />
       )}
 
+      {showSendInvitations && (
+        <SendInvitationsModal
+          eventId={id}
+          guests={guests}
+          onClose={() => setShowSendInvitations(false)}
+        />
+      )}
+
       {showManualSearch && (
         <ManualSearchModal
           guests={guests}
@@ -312,9 +311,7 @@ function EventDetails({ user }) {
             <h3 className="text-xl font-bold mb-4">Delete Event?</h3>
             <p className="text-gray-600 mb-6">This will permanently delete <strong>{event.name}</strong> and all guest data.</p>
             <div className="flex gap-3">
-              <button onClick={() => setShowDeleteConfirm(false)} className="btn btn-secondary flex-1">
-                Cancel
-              </button>
+              <button onClick={() => setShowDeleteConfirm(false)} className="btn btn-secondary flex-1">Cancel</button>
               <button onClick={handleDeleteEvent} className="btn btn-danger flex-1" disabled={deleting}>
                 {deleting ? 'Deleting...' : 'Delete'}
               </button>
@@ -429,11 +426,26 @@ function AddGuestModal({ eventId, onClose, onSuccess }) {
 }
 
 // ============================================
-// IMPORT CSV MODAL
+// IMPORT CSV MODAL (WITH SAMPLE FILE)
 // ============================================
 function ImportCSVModal({ eventId, onClose, onSuccess }) {
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  const downloadSampleCSV = () => {
+    const csvContent = `name,email,phone,category
+John Doe,john@example.com,+1234567890,General
+Jane Smith,jane@example.com,+0987654321,VIP
+Bob Johnson,bob@example.com,+1122334455,Staff`;
+    
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'guest_list_sample.csv';
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -465,10 +477,10 @@ function ImportCSVModal({ eventId, onClose, onSuccess }) {
           }
         }
         
-        alert(`${imported} guests imported successfully!`);
+        alert(`Successfully imported ${imported} guests!`);
         onSuccess();
       } catch (error) {
-        alert('Failed to import CSV');
+        alert('Failed to import CSV. Please check the file format.');
       } finally {
         setLoading(false);
       }
@@ -479,26 +491,162 @@ function ImportCSVModal({ eventId, onClose, onSuccess }) {
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
-        <h2 className="text-2xl font-bold mb-4">Import CSV</h2>
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4 text-sm">
-          <p className="font-medium mb-2">CSV Format:</p>
-          <code className="text-xs">name,email,phone,category</code>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="p-6 border-b">
+          <h2 className="text-2xl font-bold">Import Guest List</h2>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <input
-            type="file"
-            accept=".csv"
-            onChange={(e) => setFile(e.target.files[0])}
-            className="w-full px-4 py-3 border rounded-lg"
-          />
-          <div className="flex gap-3">
-            <button type="button" onClick={onClose} className="btn btn-secondary flex-1">Cancel</button>
-            <button type="submit" className="btn btn-primary flex-1" disabled={!file || loading}>
-              {loading ? 'Importing...' : 'Import'}
+        
+        <div className="p-6 space-y-4">
+          {/* Sample CSV Download */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <h3 className="font-semibold text-blue-900 mb-2">📄 Need a template?</h3>
+            <p className="text-sm text-blue-700 mb-3">
+              Download our sample CSV file to see the correct format
+            </p>
+            <button
+              onClick={downloadSampleCSV}
+              className="btn btn-secondary btn-sm w-full"
+            >
+              Download Sample CSV
             </button>
           </div>
-        </form>
+
+          {/* CSV Format Info */}
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <p className="text-sm font-medium text-gray-700 mb-2">Required Format:</p>
+            <code className="text-xs bg-white px-2 py-1 rounded border block">
+              name,email,phone,category
+            </code>
+            <p className="text-xs text-gray-600 mt-2">
+              • First row must be headers<br/>
+              • Name is required<br/>
+              • Email, phone, category are optional
+            </p>
+          </div>
+
+          {/* File Upload */}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Select CSV File</label>
+              <input
+                type="file"
+                accept=".csv"
+                onChange={(e) => setFile(e.target.files[0])}
+                className="w-full px-4 py-3 border rounded-lg"
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button type="button" onClick={onClose} className="btn btn-secondary flex-1">
+                Cancel
+              </button>
+              <button type="submit" className="btn btn-primary flex-1" disabled={!file || loading}>
+                {loading ? 'Importing...' : 'Import Guests'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// SEND INVITATIONS MODAL
+// ============================================
+function SendInvitationsModal({ eventId, guests, onClose }) {
+  const [channels, setChannels] = useState({ email: true, sms: false });
+  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState('');
+
+  const guestsWithEmail = guests.filter(g => g.email).length;
+  const guestsWithPhone = guests.filter(g => g.phone).length;
+
+  const handleSend = async () => {
+    setLoading(true);
+    setStatus('Sending invitations...');
+
+    try {
+      const selectedChannels = [];
+      if (channels.email) selectedChannels.push('email');
+      if (channels.sms) selectedChannels.push('sms');
+
+      await invitationsAPI.sendBulk(eventId, selectedChannels);
+      
+      setStatus('✅ Invitations sent successfully!');
+      setTimeout(() => {
+        onClose();
+      }, 2000);
+    } catch (error) {
+      setStatus('❌ Failed to send invitations');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+        <h2 className="text-2xl font-bold mb-4">Send Invitations</h2>
+        
+        <div className="space-y-4 mb-6">
+          {/* Email Channel */}
+          <label className="flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-gray-50">
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                checked={channels.email}
+                onChange={(e) => setChannels({...channels, email: e.target.checked})}
+                className="w-5 h-5"
+              />
+              <div>
+                <div className="font-medium">Email Invitations</div>
+                <div className="text-sm text-gray-600">{guestsWithEmail} guests with email</div>
+              </div>
+            </div>
+            <span className="text-2xl">📧</span>
+          </label>
+
+          {/* SMS Channel */}
+          <label className="flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-gray-50">
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                checked={channels.sms}
+                onChange={(e) => setChannels({...channels, sms: e.target.checked})}
+                className="w-5 h-5"
+              />
+              <div>
+                <div className="font-medium">SMS Invitations</div>
+                <div className="text-sm text-gray-600">{guestsWithPhone} guests with phone</div>
+              </div>
+            </div>
+            <span className="text-2xl">📱</span>
+          </label>
+        </div>
+
+        {status && (
+          <div className={`p-4 rounded-lg mb-4 ${
+            status.includes('✅') ? 'bg-green-50 text-green-700' : 
+            status.includes('❌') ? 'bg-red-50 text-red-700' : 
+            'bg-blue-50 text-blue-700'
+          }`}>
+            {status}
+          </div>
+        )}
+
+        <div className="flex gap-3">
+          <button onClick={onClose} className="btn btn-secondary flex-1" disabled={loading}>
+            Cancel
+          </button>
+          <button 
+            onClick={handleSend} 
+            className="btn btn-primary flex-1" 
+            disabled={loading || (!channels.email && !channels.sms)}
+          >
+            {loading ? 'Sending...' : 'Send Invitations'}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -547,10 +695,7 @@ function ManualSearchModal({ guests, onClose, onCheckIn }) {
                     )}
                   </div>
                   {!guest.checked_in && (
-                    <button
-                      onClick={() => onCheckIn(guest)}
-                      className="btn btn-success btn-sm"
-                    >
+                    <button onClick={() => onCheckIn(guest)} className="btn btn-success btn-sm">
                       Check In
                     </button>
                   )}
@@ -589,7 +734,6 @@ function WalkInModal({ eventId, onClose, onSuccess }) {
       const newGuest = response.data.guest;
       await guestsAPI.checkIn(newGuest.id);
       
-      // Pass the guest back for success dialog
       onSuccess({ ...newGuest, checked_in: true });
     } catch (error) {
       alert('Failed to add walk-in');
