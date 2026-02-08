@@ -15,6 +15,8 @@ function EventDetails({ user }) {
   const [selectedGuest, setSelectedGuest] = useState(null);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [checkedInGuest, setCheckedInGuest] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     loadEventData();
@@ -24,7 +26,9 @@ function EventDetails({ user }) {
   const loadEventData = async () => {
     try {
       const response = await eventsAPI.getById(id);
-      setEvent(response.data.event);
+      if (response.data && response.data.event) {
+        setEvent(response.data.event);
+      }
     } catch (error) {
       console.error('Error loading event:', error);
     }
@@ -68,6 +72,21 @@ function EventDetails({ user }) {
     }
   };
 
+  const handleDeleteEvent = async () => {
+    setDeleting(true);
+    try {
+      // Soft delete - marks for deletion
+      await eventsAPI.softDelete(id, user.role);
+      alert('Event marked for deletion');
+      navigate('/');
+    } catch (error) {
+      alert('Failed to delete event: ' + (error.response?.data?.error || error.message));
+    } finally {
+      setDeleting(false);
+      setShowDeleteConfirm(false);
+    }
+  };
+
   const isHost = user.role === 'host';
   const stats = {
     total: guests.length,
@@ -89,11 +108,13 @@ function EventDetails({ user }) {
 
   if (!event) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-600">Event not found</p>
-          <button onClick={() => navigate(-1)} className="btn btn-secondary btn-md mt-4">
-            Go Back
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full text-center">
+          <div className="text-gray-400 text-6xl mb-4">📋</div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Event Not Found</h2>
+          <p className="text-gray-600 mb-6">This event doesn't exist or you don't have access to it.</p>
+          <button onClick={() => navigate('/')} className="btn btn-primary w-full">
+            ← Back to Dashboard
           </button>
         </div>
       </div>
@@ -104,12 +125,19 @@ function EventDetails({ user }) {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
           <button
-            onClick={() => navigate(-1)}
+            onClick={() => navigate('/')}
             className="btn btn-ghost btn-sm"
           >
             ← Back
+          </button>
+          
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            className="btn btn-danger btn-sm"
+          >
+            🗑️ Delete Event
           </button>
         </div>
       </div>
@@ -222,6 +250,48 @@ function EventDetails({ user }) {
             setCheckedInGuest(null);
           }}
         />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+                  <span className="text-2xl">🗑️</span>
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">Delete Event?</h3>
+                  <p className="text-sm text-gray-600">This action cannot be undone</p>
+                </div>
+              </div>
+
+              <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                <p className="text-sm text-gray-700">
+                  <strong>{event.name}</strong> will be permanently deleted along with all guest data.
+                </p>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="btn btn-secondary flex-1"
+                  disabled={deleting}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteEvent}
+                  className="btn btn-danger flex-1"
+                  disabled={deleting}
+                >
+                  {deleting ? 'Deleting...' : 'Delete Event'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
