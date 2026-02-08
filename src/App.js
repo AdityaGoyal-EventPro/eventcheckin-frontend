@@ -1,4 +1,3 @@
-import AdminDashboard from './components/AdminDashboard';
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './components/Login';
@@ -6,6 +5,7 @@ import Dashboard from './components/Dashboard';
 import EventDetails from './components/EventDetails';
 import VenueDashboard from './components/VenueDashboard';
 import QRScanner from './components/QRScanner';
+import AdminDashboard from './components/AdminDashboard';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -16,8 +16,11 @@ function App() {
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
       try {
-        setUser(JSON.parse(storedUser));
+        const userData = JSON.parse(storedUser);
+        console.log('Loaded user from localStorage:', userData);
+        setUser(userData);
       } catch (error) {
+        console.error('Error parsing stored user:', error);
         localStorage.removeItem('user');
       }
     }
@@ -25,11 +28,13 @@ function App() {
   }, []);
 
   const handleLogin = (userData) => {
+    console.log('User logged in:', userData);
     setUser(userData);
     localStorage.setItem('user', JSON.stringify(userData));
   };
 
   const handleLogout = () => {
+    console.log('User logged out');
     setUser(null);
     localStorage.removeItem('user');
   };
@@ -56,12 +61,14 @@ function App() {
           } 
         />
 
-        {/* Dashboard Route */}
+        {/* Dashboard Route - Role-based redirect */}
         <Route 
           path="/" 
           element={
             !user ? (
               <Navigate to="/login" replace />
+            ) : user.role === 'admin' ? (
+              <Navigate to="/admin" replace />
             ) : user.role === 'venue' ? (
               <VenueDashboard user={user} onLogout={handleLogout} />
             ) : (
@@ -70,7 +77,21 @@ function App() {
           } 
         />
 
-        {/* Event Details Route - CRITICAL: Must have :id parameter */}
+        {/* Admin Dashboard - Admin only */}
+        <Route 
+          path="/admin" 
+          element={
+            !user ? (
+              <Navigate to="/login" replace />
+            ) : user.role === 'admin' ? (
+              <AdminDashboard user={user} onLogout={handleLogout} />
+            ) : (
+              <Navigate to="/" replace />
+            )
+          } 
+        />
+
+        {/* Event Details Route */}
         <Route 
           path="/event/:id" 
           element={
@@ -93,19 +114,7 @@ function App() {
             )
           } 
         />
-{/* Admin Route - Only for admin users */}
-<Route 
-  path="/admin" 
-  element={
-    !user ? (
-      <Navigate to="/login" replace />
-    ) : user.role === 'admin' ? (
-      <AdminDashboard user={user} onLogout={handleLogout} />
-    ) : (
-      <Navigate to="/" replace />
-    )
-  } 
-/>
+
         {/* Global QR Scanner (for venues) */}
         <Route 
           path="/scan" 
