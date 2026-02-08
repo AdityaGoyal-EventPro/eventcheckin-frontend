@@ -1,9 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Camera, Search, Download, RefreshCw, Check, X } from 'lucide-react';
+import { ArrowLeft, Camera, Search, Download, RefreshCw, Check, X, Plus, Upload, Mail, UserPlus, Edit2, Trash2 } from 'lucide-react';
 import { eventsAPI, guestsAPI } from '../api';
+import AddGuestModal from './AddGuestModal';
+import ImportCSVModal from './ImportCSVModal';
+import SendInvitationsModal from './SendInvitationsModal';
+import WalkInModal from './WalkInModal';
+import EditGuestModal from './EditGuestModal';
+import CheckInSuccessDialog from './CheckInSuccessDialog';
 
-function EventDetailsWithVenueFeatures({ user }) {
+function EventDetailsComplete({ user }) {
   const { id: eventId } = useParams();
   const navigate = useNavigate();
   const [event, setEvent] = useState(null);
@@ -11,17 +17,30 @@ function EventDetailsWithVenueFeatures({ user }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   
-  // NEW: Search and filter states
+  // Modal states
+  const [showAddGuest, setShowAddGuest] = useState(false);
+  const [showImportCSV, setShowImportCSV] = useState(false);
+  const [showSendInvitations, setShowSendInvitations] = useState(false);
+  const [showWalkIn, setShowWalkIn] = useState(false);
+  const [showEditGuest, setShowEditGuest] = useState(false);
+  const [selectedGuest, setSelectedGuest] = useState(null);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [checkedInGuest, setCheckedInGuest] = useState(null);
+  
+  // Search and filter states
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'checked-in', 'pending'
-  const [checkingIn, setCheckingIn] = useState(null); // ID of guest being checked in
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [checkingIn, setCheckingIn] = useState(null);
+
+  // Check if user is host (can edit) or venue (view-only)
+  const isHost = user?.role === 'host' || user?.role === 'admin';
+  const isVenue = user?.role === 'venue';
 
   useEffect(() => {
     loadEventData();
     
-    // Auto-refresh every 10 seconds
     const interval = setInterval(() => {
-      loadEventData(true); // Silent refresh
+      loadEventData(true);
     }, 10000);
     
     return () => clearInterval(interval);
@@ -31,11 +50,9 @@ function EventDetailsWithVenueFeatures({ user }) {
     try {
       if (!silent) setLoading(true);
       
-      // Load event details
       const eventResponse = await eventsAPI.getById(eventId);
       setEvent(eventResponse.data.event);
 
-      // Load guests
       const guestsResponse = await guestsAPI.getByEvent(eventId);
       setGuests(guestsResponse.data.guests || []);
     } catch (error) {
@@ -51,7 +68,6 @@ function EventDetailsWithVenueFeatures({ user }) {
     loadEventData();
   };
 
-  // NEW: Manual check-in function
   const handleManualCheckIn = async (guestId, guestName) => {
     if (!window.confirm(`Check in ${guestName}?`)) {
       return;
@@ -61,13 +77,8 @@ function EventDetailsWithVenueFeatures({ user }) {
     
     try {
       await guestsAPI.checkIn(guestId);
-      
-      // Reload guests to show updated status
       const guestsResponse = await guestsAPI.getByEvent(eventId);
       setGuests(guestsResponse.data.guests || []);
-      
-      // Optional: Show success message
-      console.log(`✅ ${guestName} checked in successfully`);
     } catch (error) {
       console.error('Error checking in guest:', error);
       alert(`Failed to check in ${guestName}. Please try again.`);
@@ -76,18 +87,33 @@ function EventDetailsWithVenueFeatures({ user }) {
     }
   };
 
-  // NEW: Filter and search logic
+  const handleEditGuest = (guest) => {
+    setSelectedGuest(guest);
+    setShowEditGuest(true);
+  };
+
+  const handleDeleteGuest = async (guestId, guestName) => {
+    if (!window.confirm(`Remove ${guestName} from guest list?`)) {
+      return;
+    }
+
+    try {
+      await guestsAPI.delete(guestId);
+      loadEventData();
+    } catch (error) {
+      alert('Failed to delete guest');
+    }
+  };
+
   const getFilteredGuests = () => {
     let filtered = guests;
 
-    // Apply status filter
     if (statusFilter === 'checked-in') {
       filtered = filtered.filter(g => g.checked_in);
     } else if (statusFilter === 'pending') {
       filtered = filtered.filter(g => !g.checked_in);
     }
 
-    // Apply search filter
     if (searchTerm) {
       filtered = filtered.filter(g =>
         g.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -100,11 +126,10 @@ function EventDetailsWithVenueFeatures({ user }) {
   };
 
   const filteredGuests = getFilteredGuests();
-
-  // Stats
   const totalGuests = guests.length;
   const checkedInCount = guests.filter(g => g.checked_in).length;
   const pendingCount = totalGuests - checkedInCount;
+  const walkInCount = guests.filter(g => g.is_walk_in).length;
 
   if (loading && !event) {
     return (
@@ -151,7 +176,6 @@ function EventDetailsWithVenueFeatures({ user }) {
             </div>
           </div>
 
-          {/* Event Info */}
           {event && (
             <div>
               <h1 className="text-2xl font-bold text-gray-900 mb-2">{event.name}</h1>
@@ -169,7 +193,7 @@ function EventDetailsWithVenueFeatures({ user }) {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
             <div className="text-3xl font-bold text-gray-900">{totalGuests}</div>
             <div className="text-sm text-gray-600">Total Guests</div>
@@ -184,12 +208,68 @@ function EventDetailsWithVenueFeatures({ user }) {
             <div className="text-3xl font-bold text-orange-600">{pendingCount}</div>
             <div className="text-sm text-gray-600">Pending</div>
           </div>
+
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+            <div className="text-3xl font-bold text-purple-600">{walkInCount}</div>
+            <div className="text-sm text-gray-600">Walk-Ins</div>
+          </div>
         </div>
 
-        {/* NEW: Search and Filter Bar */}
+        {/* Action Buttons - Host gets all, Venue gets Walk-In only */}
+        {isHost ? (
+          // Full action buttons for hosts
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <button
+              onClick={() => setShowAddGuest(true)}
+              className="flex items-center justify-center gap-2 bg-white border-2 border-gray-200 hover:border-indigo-500 rounded-xl p-4 transition"
+            >
+              <Plus className="w-5 h-5 text-indigo-600" />
+              <span className="font-medium">Add Guest</span>
+            </button>
+
+            <button
+              onClick={() => setShowImportCSV(true)}
+              className="flex items-center justify-center gap-2 bg-white border-2 border-gray-200 hover:border-indigo-500 rounded-xl p-4 transition"
+            >
+              <Upload className="w-5 h-5 text-indigo-600" />
+              <span className="font-medium">Import CSV</span>
+            </button>
+
+            <button
+              onClick={() => setShowSendInvitations(true)}
+              className="flex items-center justify-center gap-2 bg-white border-2 border-gray-200 hover:border-indigo-500 rounded-xl p-4 transition"
+            >
+              <Mail className="w-5 h-5 text-indigo-600" />
+              <span className="font-medium">Send Invites</span>
+            </button>
+
+            <button
+              onClick={() => setShowWalkIn(true)}
+              className="flex items-center justify-center gap-2 bg-white border-2 border-gray-200 hover:border-indigo-500 rounded-xl p-4 transition"
+            >
+              <UserPlus className="w-5 h-5 text-indigo-600" />
+              <span className="font-medium">Walk-In</span>
+            </button>
+          </div>
+        ) : isVenue && (
+          // Walk-In only for venue staff
+          <div className="mb-8">
+            <button
+              onClick={() => setShowWalkIn(true)}
+              className="w-full md:w-auto flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-semibold px-6 py-4 rounded-xl hover:from-purple-700 hover:to-indigo-700 transition shadow-lg"
+            >
+              <UserPlus className="w-6 h-6" />
+              <span>Register Walk-In Guest</span>
+            </button>
+            <p className="text-sm text-gray-600 mt-2">
+              For guests not on the pre-registered list
+            </p>
+          </div>
+        )}
+
+        {/* Search and Filter Bar */}
         <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Search Bar */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
@@ -209,7 +289,6 @@ function EventDetailsWithVenueFeatures({ user }) {
               )}
             </div>
 
-            {/* Status Filter */}
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
@@ -221,7 +300,6 @@ function EventDetailsWithVenueFeatures({ user }) {
             </select>
           </div>
           
-          {/* Results count */}
           {(searchTerm || statusFilter !== 'all') && (
             <div className="mt-3 text-sm text-gray-600">
               Showing {filteredGuests.length} of {totalGuests} guests
@@ -233,9 +311,7 @@ function EventDetailsWithVenueFeatures({ user }) {
         {/* Guest List */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="p-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">
-              Guest List
-            </h2>
+            <h2 className="text-lg font-semibold text-gray-900">Guest List</h2>
           </div>
 
           {filteredGuests.length === 0 ? (
@@ -267,7 +343,6 @@ function EventDetailsWithVenueFeatures({ user }) {
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    {/* Guest Info */}
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-1">
                         <h3 className="font-semibold text-gray-900">{guest.name}</h3>
@@ -275,6 +350,11 @@ function EventDetailsWithVenueFeatures({ user }) {
                           <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">
                             <Check className="w-3 h-3" />
                             Checked In
+                          </span>
+                        )}
+                        {guest.is_walk_in && (
+                          <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">
+                            Walk-In
                           </span>
                         )}
                       </div>
@@ -290,26 +370,48 @@ function EventDetailsWithVenueFeatures({ user }) {
                       </div>
                     </div>
 
-                    {/* NEW: Manual Check-In Button */}
-                    {!guest.checked_in && (
-                      <button
-                        onClick={() => handleManualCheckIn(guest.id, guest.name)}
-                        disabled={checkingIn === guest.id}
-                        className="ml-4 flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {checkingIn === guest.id ? (
-                          <>
-                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                            <span>Checking in...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Check className="w-4 h-4" />
-                            <span>Check In</span>
-                          </>
-                        )}
-                      </button>
-                    )}
+                    <div className="flex items-center gap-2 ml-4">
+                      {/* Manual Check-In - For all users */}
+                      {!guest.checked_in && (
+                        <button
+                          onClick={() => handleManualCheckIn(guest.id, guest.name)}
+                          disabled={checkingIn === guest.id}
+                          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition disabled:opacity-50"
+                        >
+                          {checkingIn === guest.id ? (
+                            <>
+                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                              <span className="hidden sm:inline">Checking in...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Check className="w-4 h-4" />
+                              <span className="hidden sm:inline">Check In</span>
+                            </>
+                          )}
+                        </button>
+                      )}
+
+                      {/* Edit/Delete - Only for hosts */}
+                      {isHost && (
+                        <>
+                          <button
+                            onClick={() => handleEditGuest(guest)}
+                            className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-gray-100 rounded-lg transition"
+                            title="Edit"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteGuest(guest.id, guest.name)}
+                            className="p-2 text-gray-600 hover:text-red-600 hover:bg-gray-100 rounded-lg transition"
+                            title="Delete"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -317,8 +419,83 @@ function EventDetailsWithVenueFeatures({ user }) {
           )}
         </div>
       </div>
+
+      {/* Modals - Only for Hosts */}
+      {isHost && (
+        <>
+          {showAddGuest && (
+            <AddGuestModal
+              eventId={eventId}
+              onClose={() => setShowAddGuest(false)}
+              onGuestAdded={() => {
+                setShowAddGuest(false);
+                loadEventData();
+              }}
+            />
+          )}
+
+          {showImportCSV && (
+            <ImportCSVModal
+              eventId={eventId}
+              onClose={() => setShowImportCSV(false)}
+              onImportComplete={() => {
+                setShowImportCSV(false);
+                loadEventData();
+              }}
+            />
+          )}
+
+          {showSendInvitations && (
+            <SendInvitationsModal
+              eventId={eventId}
+              event={event}
+              guests={guests}
+              onClose={() => setShowSendInvitations(false)}
+            />
+          )}
+
+          {showEditGuest && selectedGuest && (
+            <EditGuestModal
+              guest={selectedGuest}
+              onClose={() => {
+                setShowEditGuest(false);
+                setSelectedGuest(null);
+              }}
+              onGuestUpdated={() => {
+                setShowEditGuest(false);
+                setSelectedGuest(null);
+                loadEventData();
+              }}
+            />
+          )}
+        </>
+      )}
+
+      {/* Walk-In Modal - For Both Hosts AND Venue */}
+      {showWalkIn && (
+        <WalkInModal
+          eventId={eventId}
+          onClose={() => setShowWalkIn(false)}
+          onWalkInAdded={(guest) => {
+            setShowWalkIn(false);
+            setCheckedInGuest(guest);
+            setShowSuccessDialog(true);
+            loadEventData();
+          }}
+        />
+      )}
+
+      {showSuccessDialog && checkedInGuest && (
+        <CheckInSuccessDialog
+          guest={checkedInGuest}
+          onClose={() => {
+            setShowSuccessDialog(false);
+            setCheckedInGuest(null);
+          }}
+        />
+      )}
     </div>
   );
 }
 
-export default EventDetailsWithVenueFeatures;
+export default EventDetailsComplete;
