@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { X, Camera } from 'lucide-react';
-import { guestsAPI } from '../api';
+import { guestsAPI, eventsAPI } from '../api';
 import { Html5Qrcode } from 'html5-qrcode';
 import CheckInSuccessDialog from './CheckInSuccessDialog';
 
@@ -14,10 +14,19 @@ function QRScanner({ user }) {
   const [checkedInGuest, setCheckedInGuest] = useState(null);
   const [showSuccess, setShowSuccess] = useState(false);
   const [event, setEvent] = useState(null);
+  const [isGlobalScan, setIsGlobalScan] = useState(false);
 
   useEffect(() => {
-    // Load event data
-    loadEventData();
+    // Check if this is global scan (no eventId) or event-specific scan
+    if (!eventId) {
+      console.log('Global QR Scanner mode');
+      setIsGlobalScan(true);
+      setEvent({ name: 'Global Scanner', venue_name: user.venue_name || 'All Venues' });
+    } else {
+      console.log('Event-specific QR Scanner mode for event:', eventId);
+      setIsGlobalScan(false);
+      loadEventData();
+    }
     
     return () => {
       // Cleanup scanner on unmount
@@ -25,15 +34,21 @@ function QRScanner({ user }) {
         scanner.stop().catch(console.error);
       }
     };
-  }, []);
+  }, [eventId]);
 
   const loadEventData = async () => {
+    if (!eventId) return;
+    
     try {
-      const { eventsAPI } = await import('../api');
+      console.log('Loading event data for ID:', eventId);
       const response = await eventsAPI.getById(eventId);
+      console.log('Event loaded:', response.data.event);
       setEvent(response.data.event);
     } catch (error) {
       console.error('Error loading event:', error);
+      setError('Failed to load event details. Scanner will still work.');
+      // Set a fallback event so scanner can still work
+      setEvent({ name: 'Event', venue_name: user.venue_name || 'Venue' });
     }
   };
 
@@ -83,37 +98,59 @@ function QRScanner({ user }) {
       // Parse QR code data
       const qrData = JSON.parse(decodedText);
       const guestId = qrData.guest_id;
+      const qrEventId = qrData.event_id; // Event ID from QR code
 
       if (!guestId) {
-        setError('Invalid QR code');
+        setError('Invalid QR code - missing guest ID');
         // Resume scanning after 2 seconds
         setTimeout(() => {
           if (scanner) scanner.resume();
+          setError('');
+        }, 2000);
+        return;
+      }
+
+      // For event-specific scan, verify it's the right event
+      if (eventId && qrEventId && eventId !== qrEventId) {
+        setError('Wrong event! This QR is for a different event.');
+        setTimeout(() => {
+          if (scanner) scanner.resume();
+          setError('');
         }, 2000);
         return;
       }
 
       // Perform check-in (scanner still paused)
+      console.log('Checking in guest:', guestId);
       await guestsAPI.checkIn(guestId);
 
-      // Get guest details
-      const response = await guestsAPI.getByEvent(eventId);
+      // Get guest details - use QR event ID for global scan, eventId for event-specific
+      const targetEventId = isGlobalScan ? qrEventId : eventId;
+      
+      console.log('Fetching guest details from event:', targetEventId);
+      const response = await guestsAPI.getByEvent(targetEventId);
       const guest = response.data.guests.find(g => g.id === guestId);
 
       if (guest) {
         setCheckedInGuest(guest);
         setShowSuccess(true);
         // Scanner will resume when success dialog closes
+      } else {
+        setError('Guest checked in but details not found');
+        setTimeout(() => {
+          if (scanner) scanner.resume();
+          setError('');
+        }, 2000);
       }
 
     } catch (error) {
       console.error('Check-in error:', error);
-      setError('Check-in failed. Please try again.');
+      setError(error.response?.data?.error || 'Check-in failed. Please try again.');
       // Resume scanner after error
       setTimeout(() => {
         if (scanner) scanner.resume();
         setError('');
-      }, 2000);
+      }, 3000);
     }
   };
 
@@ -138,14 +175,27 @@ function QRScanner({ user }) {
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
       {/* Header */}
-      <div className="bg-gray-800 p-4 flex justify-between items-center">
-        <h1 className="text-white text-xl font-bold">QR Scanner</h1>
-        <button
-          onClick={handleClose}
-          className="p-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition"
-        >
-          <X className="w-6 h-6 text-white" />
-        </button>
+      <div className="bg-gray-800 p-4">
+        <div className="flex justify-between items-center mb-2">
+          <h1 className="text-white text-xl font-bold">
+            {isGlobalScan ? '📱 Global QR Scanner' : '🎫 Event QR Scanner'}
+          </h1>
+          <button
+            onClick={handleClose}
+            className="p-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition"
+          >
+            <X className="w-6 h-6 text-white" />
+          </button>
+        </div>
+        {event && (
+          <div className="text-gray-300 text-sm">
+            {isGlobalScan ? (
+              <p>Scan any event QR code at {event.venue_name}</p>
+            ) : (
+              <p>Event: {event.name} • {event.venue_name}</p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Scanner Area */}
