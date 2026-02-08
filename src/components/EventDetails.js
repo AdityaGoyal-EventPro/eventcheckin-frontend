@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Camera, Search, RefreshCw, Check, X, Plus, UserPlus, Edit2, Trash2 } from 'lucide-react';
+import { ArrowLeft, Camera, Search, RefreshCw, Check, X, Plus, UserPlus, Edit2, Trash2, Upload, Mail, QrCode } from 'lucide-react';
 import { eventsAPI, guestsAPI } from '../api';
+import GuestListMobile from './GuestListMobile';
+import SendInvitationsModal from './SendInvitationsModal';
+import WalkInModal from './WalkInModal';
 import EditGuestModal from './EditGuestModal';
 import CheckInSuccessDialog from './CheckInSuccessDialog';
 
@@ -14,15 +17,15 @@ function EventDetails({ user }) {
   const [refreshing, setRefreshing] = useState(false);
   
   // Modal states
+  const [showAddGuest, setShowAddGuest] = useState(false);
+  const [showImportCSV, setShowImportCSV] = useState(false);
+  const [showSendInvitations, setShowSendInvitations] = useState(false);
+  const [showWalkIn, setShowWalkIn] = useState(false);
   const [showEditGuest, setShowEditGuest] = useState(false);
-  const [showWalkInForm, setShowWalkInForm] = useState(false);
   const [selectedGuest, setSelectedGuest] = useState(null);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [checkedInGuest, setCheckedInGuest] = useState(null);
-  
-  // Walk-in form state
-  const [walkInData, setWalkInData] = useState({ name: '', email: '', phone: '' });
-  const [submittingWalkIn, setSubmittingWalkIn] = useState(false);
+  const [showManualSearch, setShowManualSearch] = useState(false);
   
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState('');
@@ -65,20 +68,21 @@ function EventDetails({ user }) {
     loadEventData();
   };
 
-  const handleManualCheckIn = async (guestId, guestName) => {
-    if (!window.confirm(`Check in ${guestName}?`)) {
+  const handleManualCheckIn = async (guest) => {
+    if (!window.confirm(`Check in ${guest.name}?`)) {
       return;
     }
 
-    setCheckingIn(guestId);
+    setCheckingIn(guest.id);
     
     try {
-      await guestsAPI.checkIn(guestId);
-      const guestsResponse = await guestsAPI.getByEvent(eventId);
-      setGuests(guestsResponse.data.guests || []);
+      await guestsAPI.checkIn(guest.id);
+      setCheckedInGuest(guest);
+      setShowSuccessDialog(true);
+      loadEventData();
     } catch (error) {
       console.error('Error checking in guest:', error);
-      alert(`Failed to check in ${guestName}. Please try again.`);
+      alert(`Failed to check in ${guest.name}. Please try again.`);
     } finally {
       setCheckingIn(null);
     }
@@ -89,8 +93,8 @@ function EventDetails({ user }) {
     setShowEditGuest(true);
   };
 
-  const handleDeleteGuest = async (guestId, guestName) => {
-    if (!window.confirm(`Remove ${guestName} from guest list?`)) {
+  const handleDeleteGuest = async (guestId) => {
+    if (!window.confirm('Remove this guest from the list?')) {
       return;
     }
 
@@ -102,30 +106,49 @@ function EventDetails({ user }) {
     }
   };
 
-  const handleWalkInSubmit = async (e) => {
+  // Simple inline Add Guest form
+  const handleAddGuest = async (e) => {
     e.preventDefault();
+    const formData = new FormData(e.target);
+    const guestData = {
+      name: formData.get('name'),
+      email: formData.get('email'),
+      phone: formData.get('phone'),
+      category: formData.get('category') || 'General',
+      plus_ones: parseInt(formData.get('plus_ones')) || 0
+    };
+
+    try {
+      await guestsAPI.create(eventId, guestData);
+      setShowAddGuest(false);
+      loadEventData();
+      e.target.reset();
+    } catch (error) {
+      alert('Failed to add guest');
+    }
+  };
+
+  // Simple inline CSV Import
+  const handleCSVImport = async (e) => {
+    e.preventDefault();
+    const fileInput = e.target.querySelector('input[type="file"]');
+    const file = fileInput.files[0];
     
-    if (!walkInData.name.trim()) {
-      alert('Guest name is required');
+    if (!file) {
+      alert('Please select a CSV file');
       return;
     }
 
-    setSubmittingWalkIn(true);
+    const formData = new FormData();
+    formData.append('file', file);
 
     try {
-      const response = await guestsAPI.addWalkIn(eventId, walkInData);
-      const newGuest = response.data.guest;
-      
-      setWalkInData({ name: '', email: '', phone: '' });
-      setShowWalkInForm(false);
-      setCheckedInGuest(newGuest);
-      setShowSuccessDialog(true);
+      await guestsAPI.importCSV(eventId, formData);
+      setShowImportCSV(false);
       loadEventData();
+      alert('CSV imported successfully!');
     } catch (error) {
-      console.error('Walk-in error:', error);
-      alert('Failed to register walk-in guest');
-    } finally {
-      setSubmittingWalkIn(false);
+      alert('Failed to import CSV');
     }
   };
 
@@ -154,6 +177,7 @@ function EventDetails({ user }) {
   const checkedInCount = guests.filter(g => g.checked_in).length;
   const pendingCount = totalGuests - checkedInCount;
   const walkInCount = guests.filter(g => g.is_walk_in).length;
+  const vipCount = guests.filter(g => g.category === 'VIP').length;
 
   if (loading && !event) {
     return (
@@ -217,10 +241,10 @@ function EventDetails({ user }) {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
           <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
             <div className="text-3xl font-bold text-gray-900">{totalGuests}</div>
-            <div className="text-sm text-gray-600">Total Guests</div>
+            <div className="text-sm text-gray-600">Total</div>
           </div>
           
           <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
@@ -234,16 +258,55 @@ function EventDetails({ user }) {
           </div>
 
           <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-            <div className="text-3xl font-bold text-purple-600">{walkInCount}</div>
+            <div className="text-3xl font-bold text-purple-600">{vipCount}</div>
+            <div className="text-sm text-gray-600">VIP</div>
+          </div>
+
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+            <div className="text-3xl font-bold text-amber-600">{walkInCount}</div>
             <div className="text-sm text-gray-600">Walk-Ins</div>
           </div>
         </div>
 
-        {/* Walk-In Button - For Both Hosts and Venue */}
-        {(isHost || isVenue) && (
+        {/* Action Buttons - Host gets all 4, Venue gets Walk-In only */}
+        {isHost ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <button
+              onClick={() => setShowAddGuest(true)}
+              className="flex items-center justify-center gap-2 bg-white border-2 border-gray-200 hover:border-indigo-500 rounded-xl p-4 transition"
+            >
+              <Plus className="w-5 h-5 text-indigo-600" />
+              <span className="font-medium">Add Guest</span>
+            </button>
+
+            <button
+              onClick={() => setShowImportCSV(true)}
+              className="flex items-center justify-center gap-2 bg-white border-2 border-gray-200 hover:border-indigo-500 rounded-xl p-4 transition"
+            >
+              <Upload className="w-5 h-5 text-indigo-600" />
+              <span className="font-medium">Import CSV</span>
+            </button>
+
+            <button
+              onClick={() => setShowSendInvitations(true)}
+              className="flex items-center justify-center gap-2 bg-white border-2 border-gray-200 hover:border-indigo-500 rounded-xl p-4 transition"
+            >
+              <Mail className="w-5 h-5 text-indigo-600" />
+              <span className="font-medium">Send Invites</span>
+            </button>
+
+            <button
+              onClick={() => setShowWalkIn(true)}
+              className="flex items-center justify-center gap-2 bg-white border-2 border-gray-200 hover:border-indigo-500 rounded-xl p-4 transition"
+            >
+              <UserPlus className="w-5 h-5 text-indigo-600" />
+              <span className="font-medium">Walk-In</span>
+            </button>
+          </div>
+        ) : isVenue && (
           <div className="mb-8">
             <button
-              onClick={() => setShowWalkInForm(true)}
+              onClick={() => setShowWalkIn(true)}
               className="w-full md:w-auto flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-semibold px-6 py-4 rounded-xl hover:from-purple-700 hover:to-indigo-700 transition shadow-lg"
             >
               <UserPlus className="w-6 h-6" />
@@ -296,7 +359,7 @@ function EventDetails({ user }) {
           )}
         </div>
 
-        {/* Guest List */}
+        {/* Guest List - Using existing GuestListMobile component */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="p-4 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900">Guest List</h2>
@@ -322,154 +385,44 @@ function EventDetails({ user }) {
               )}
             </div>
           ) : (
-            <div className="divide-y divide-gray-200">
-              {filteredGuests.map((guest) => (
-                <div
-                  key={guest.id}
-                  className={`p-4 hover:bg-gray-50 transition ${
-                    guest.checked_in ? 'bg-green-50' : ''
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-1">
-                        <h3 className="font-semibold text-gray-900">{guest.name}</h3>
-                        {guest.checked_in && (
-                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">
-                            <Check className="w-3 h-3" />
-                            Checked In
-                          </span>
-                        )}
-                        {guest.is_walk_in && (
-                          <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">
-                            Walk-In
-                          </span>
-                        )}
-                      </div>
-                      
-                      <div className="text-sm text-gray-600 space-y-1">
-                        {guest.email && <div>📧 {guest.email}</div>}
-                        {guest.phone && <div>📱 {guest.phone}</div>}
-                        {guest.checked_in && guest.checked_in_time && (
-                          <div className="text-green-600">
-                            ✓ {new Date(guest.checked_in_time).toLocaleString()}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 ml-4">
-                      {!guest.checked_in && (
-                        <button
-                          onClick={() => handleManualCheckIn(guest.id, guest.name)}
-                          disabled={checkingIn === guest.id}
-                          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition disabled:opacity-50"
-                        >
-                          {checkingIn === guest.id ? (
-                            <>
-                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                              <span className="hidden sm:inline">Checking in...</span>
-                            </>
-                          ) : (
-                            <>
-                              <Check className="w-4 h-4" />
-                              <span className="hidden sm:inline">Check In</span>
-                            </>
-                          )}
-                        </button>
-                      )}
-
-                      {isHost && (
-                        <>
-                          <button
-                            onClick={() => handleEditGuest(guest)}
-                            className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-gray-100 rounded-lg transition"
-                            title="Edit"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteGuest(guest.id, guest.name)}
-                            className="p-2 text-gray-600 hover:text-red-600 hover:bg-gray-100 rounded-lg transition"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <GuestListMobile
+              guests={filteredGuests}
+              onCheckIn={handleManualCheckIn}
+              onEdit={isHost ? handleEditGuest : null}
+              onDelete={isHost ? handleDeleteGuest : null}
+            />
           )}
         </div>
       </div>
 
-      {/* Walk-In Form Modal */}
-      {showWalkInForm && (
+      {/* Simple Add Guest Modal */}
+      {showAddGuest && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl max-w-md w-full p-6">
-            <h2 className="text-2xl font-bold mb-4">Register Walk-In Guest</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold">Add Guest</h2>
+              <button onClick={() => setShowAddGuest(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
             
-            <form onSubmit={handleWalkInSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Guest Name *
-                </label>
-                <input
-                  type="text"
-                  value={walkInData.name}
-                  onChange={(e) => setWalkInData({...walkInData, name: e.target.value})}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                  placeholder="Enter guest name"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email (Optional)
-                </label>
-                <input
-                  type="email"
-                  value={walkInData.email}
-                  onChange={(e) => setWalkInData({...walkInData, email: e.target.value})}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                  placeholder="guest@email.com"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Phone (Optional)
-                </label>
-                <input
-                  type="tel"
-                  value={walkInData.phone}
-                  onChange={(e) => setWalkInData({...walkInData, phone: e.target.value})}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                  placeholder="+1234567890"
-                />
-              </div>
-
+            <form onSubmit={handleAddGuest} className="space-y-4">
+              <input name="name" placeholder="Guest Name *" required className="w-full px-4 py-2 border rounded-lg" />
+              <input name="email" type="email" placeholder="Email" className="w-full px-4 py-2 border rounded-lg" />
+              <input name="phone" type="tel" placeholder="Phone" className="w-full px-4 py-2 border rounded-lg" />
+              <select name="category" className="w-full px-4 py-2 border rounded-lg">
+                <option value="General">General</option>
+                <option value="VIP">VIP</option>
+                <option value="VVIP">VVIP</option>
+              </select>
+              <input name="plus_ones" type="number" min="0" placeholder="Plus Ones" className="w-full px-4 py-2 border rounded-lg" />
+              
               <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowWalkInForm(false);
-                    setWalkInData({ name: '', email: '', phone: '' });
-                  }}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
-                >
+                <button type="button" onClick={() => setShowAddGuest(false)} className="flex-1 px-4 py-2 border rounded-lg">
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  disabled={submittingWalkIn}
-                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition disabled:opacity-50"
-                >
-                  {submittingWalkIn ? 'Adding...' : 'Add & Check In'}
+                <button type="submit" className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg">
+                  Add Guest
                 </button>
               </div>
             </form>
@@ -477,7 +430,63 @@ function EventDetails({ user }) {
         </div>
       )}
 
-      {/* Edit Guest Modal */}
+      {/* Simple Import CSV Modal */}
+      {showImportCSV && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold">Import CSV</h2>
+              <button onClick={() => setShowImportCSV(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleCSVImport} className="space-y-4">
+              <div className="border-2 border-dashed rounded-lg p-6 text-center">
+                <Upload className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                <input type="file" accept=".csv" required className="text-sm" />
+              </div>
+              
+              <div className="text-sm text-gray-600">
+                CSV Format: name, email, phone, category, plus_ones
+              </div>
+              
+              <div className="flex gap-3 pt-4">
+                <button type="button" onClick={() => setShowImportCSV(false)} className="flex-1 px-4 py-2 border rounded-lg">
+                  Cancel
+                </button>
+                <button type="submit" className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg">
+                  Import
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Existing Modals */}
+      {showSendInvitations && (
+        <SendInvitationsModal
+          eventId={eventId}
+          event={event}
+          guests={guests}
+          onClose={() => setShowSendInvitations(false)}
+        />
+      )}
+
+      {showWalkIn && (
+        <WalkInModal
+          eventId={eventId}
+          onClose={() => setShowWalkIn(false)}
+          onWalkInAdded={(guest) => {
+            setShowWalkIn(false);
+            setCheckedInGuest(guest);
+            setShowSuccessDialog(true);
+            loadEventData();
+          }}
+        />
+      )}
+
       {showEditGuest && selectedGuest && (
         <EditGuestModal
           guest={selectedGuest}
@@ -493,7 +502,6 @@ function EventDetails({ user }) {
         />
       )}
 
-      {/* Success Dialog */}
       {showSuccessDialog && checkedInGuest && (
         <CheckInSuccessDialog
           guest={checkedInGuest}
