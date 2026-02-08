@@ -6,6 +6,7 @@ import EventDetails from './components/EventDetails';
 import VenueDashboard from './components/VenueDashboard';
 import QRScanner from './components/QRScanner';
 import AdminDashboard from './components/AdminDashboard';
+import PendingApproval from './components/PendingApproval';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -67,6 +68,8 @@ function App() {
           element={
             !user ? (
               <Navigate to="/login" replace />
+            ) : user.status === 'pending' ? (
+              <PendingApproval user={user} onLogout={handleLogout} />
             ) : user.role === 'admin' ? (
               <Navigate to="/admin" replace />
             ) : user.role === 'venue' ? (
