@@ -567,18 +567,30 @@ function SendInvitationsModal({ eventId, guests, onClose }) {
     setStatus('Sending invitations...');
 
     try {
-      const selectedChannels = [];
-      if (channels.email) selectedChannels.push('email');
-      if (channels.sms) selectedChannels.push('sms');
-
-      await invitationsAPI.sendBulk(eventId, selectedChannels);
+      console.log('Sending invitations with channels:', channels);
+      console.log('Event ID:', eventId);
       
-      setStatus('✅ Invitations sent successfully!');
+      // FIXED: Send channels object directly, not array!
+      const response = await invitationsAPI.sendBulk(eventId, channels);
+      
+      console.log('Response:', response.data);
+      
+      const { results } = response.data;
+      const totalSent = (results.email?.sent || 0) + (results.sms?.sent || 0);
+      
+      if (totalSent > 0) {
+        setStatus(`✅ Successfully sent ${totalSent} invitations!`);
+      } else {
+        setStatus('⚠️ No invitations sent. Check guest contact info.');
+      }
+      
       setTimeout(() => {
         onClose();
-      }, 2000);
+      }, 3000);
     } catch (error) {
-      setStatus('❌ Failed to send invitations');
+      console.error('Send invitations error:', error);
+      console.error('Error response:', error.response?.data);
+      setStatus(`❌ Failed: ${error.response?.data?.error || error.message}`);
     } finally {
       setLoading(false);
     }
@@ -625,11 +637,19 @@ function SendInvitationsModal({ eventId, guests, onClose }) {
           </label>
         </div>
 
+        {/* Debug Info */}
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mb-4 text-xs">
+          <p className="font-medium mb-1">Debug Info:</p>
+          <p>Email: {channels.email ? '✓ Enabled' : '✗ Disabled'} ({guestsWithEmail} recipients)</p>
+          <p>SMS: {channels.sms ? '✓ Enabled' : '✗ Disabled'} ({guestsWithPhone} recipients)</p>
+        </div>
+
         {status && (
-          <div className={`p-4 rounded-lg mb-4 ${
-            status.includes('✅') ? 'bg-green-50 text-green-700' : 
-            status.includes('❌') ? 'bg-red-50 text-red-700' : 
-            'bg-blue-50 text-blue-700'
+          <div className={`p-4 rounded-lg mb-4 text-sm ${
+            status.includes('✅') ? 'bg-green-50 text-green-700 border border-green-200' : 
+            status.includes('❌') ? 'bg-red-50 text-red-700 border border-red-200' : 
+            status.includes('⚠️') ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+            'bg-blue-50 text-blue-700 border border-blue-200'
           }`}>
             {status}
           </div>
