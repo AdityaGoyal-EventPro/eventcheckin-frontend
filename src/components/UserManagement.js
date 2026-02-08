@@ -45,6 +45,66 @@ function UserManagement({ user }) {
     }
   };
 
+  const handleApprove = async (userId) => {
+    if (!window.confirm('Approve this user? They will receive an email notification and can access the system.')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/admin/users/${userId}/approve`, {
+        method: 'POST',
+        headers: {
+          'x-user-id': user.id,
+          'x-user-role': user.role
+        }
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        alert('✅ User approved! Email notification sent.');
+        loadUsers();
+      } else {
+        alert('Failed to approve user');
+      }
+    } catch (error) {
+      alert('Failed to approve user');
+    }
+  };
+
+  const handleReject = async (userId) => {
+    const reason = window.prompt('Reason for rejection (optional - will be sent to user):');
+    
+    if (reason === null) return; // User cancelled
+    
+    if (!window.confirm('Reject this user? Their account will be deleted and they will receive an email notification.')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/admin/users/${userId}/reject`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': user.id,
+          'x-user-role': user.role
+        },
+        body: JSON.stringify({ reason })
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        alert('❌ User rejected. Email notification sent.');
+        loadUsers();
+      } else {
+        alert('Failed to reject user');
+      }
+    } catch (error) {
+      alert('Failed to reject user');
+    }
+  };
+
   const filteredUsers = users.filter(u => {
     const matchesSearch = u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          u.email.toLowerCase().includes(searchTerm.toLowerCase());
@@ -170,7 +230,22 @@ function UserManagement({ user }) {
                     {u.venue_name || '-'}
                   </td>
                   <td className="px-6 py-4">
-                    {u.status === 'active' ? (
+                    {u.status === 'pending' ? (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleApprove(u.id)}
+                          className="text-sm bg-green-100 text-green-700 px-3 py-1 rounded-lg hover:bg-green-200 font-medium transition"
+                        >
+                          ✅ Approve
+                        </button>
+                        <button
+                          onClick={() => handleReject(u.id)}
+                          className="text-sm bg-red-100 text-red-700 px-3 py-1 rounded-lg hover:bg-red-200 font-medium transition"
+                        >
+                          ❌ Reject
+                        </button>
+                      </div>
+                    ) : u.status === 'active' ? (
                       <button
                         onClick={() => handleStatusChange(u.id, 'suspended')}
                         className="text-sm text-red-600 hover:text-red-700 font-medium"
