@@ -1,26 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import LoginSelection from './components/LoginSelection';
-import HostLogin from './components/HostLogin';
-import VenueLogin from './components/VenueLogin';
 import Login from './components/Login';
-import Signup from './components/Signup';
-import AcceptInvite from './components/AcceptInvite';
 import Dashboard from './components/Dashboard';
-import VenueDashboard from './components/VenueDashboard';
 import EventDetails from './components/EventDetails';
-import CheckIn from './components/CheckIn';
-import './App.css';
+import VenueDashboard from './components/VenueDashboard';
+import QRScanner from './components/QRScanner';
 
 function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check for existing session
-    const savedUser = localStorage.getItem('user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
+    // Check if user is logged in
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      try {
+        setUser(JSON.parse(storedUser));
+      } catch (error) {
+        localStorage.removeItem('user');
+      }
     }
     setLoading(false);
   }, []);
@@ -37,78 +35,79 @@ function App() {
 
   if (loading) {
     return (
-      <div className="loading-screen">
-        <div className="spinner"></div>
-        <p>Loading...</p>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
       </div>
     );
   }
 
   return (
     <Router>
-      <div className="App">
-        <Routes>
-          <Route 
-            path="/login" 
-            element={user ? <Navigate to="/dashboard" /> : <LoginSelection />} 
-          />
-          <Route 
-            path="/login/host" 
-            element={user ? <Navigate to="/dashboard" /> : <HostLogin onLogin={handleLogin} />} 
-          />
-          <Route 
-            path="/login/venue" 
-            element={user ? <Navigate to="/dashboard" /> : <VenueLogin onLogin={handleLogin} />} 
-              
-          />
-          <Route 
-            path="/signup" 
-            element={user ? <Navigate to="/dashboard" /> : <Signup onSignup={handleLogin} />} 
-          />
-          <Route 
-            path="/invite/:token" 
-            element={<AcceptInvite onLogin={handleLogin} />} 
-          />
-          <Route 
-            path="/signup/host" 
-            element={user ? <Navigate to="/dashboard" /> : <Signup onSignup={handleLogin} role="host" />} 
-          />
-          <Route 
-            path="/signup/venue" 
-            element={user ? <Navigate to="/dashboard" /> : <Signup onSignup={handleLogin} role="venue" />} 
-          />
-          <Route 
-            path="/dashboard" 
-            element={
-              user ? (
-                user.role === 'venue' ? (
-                  <VenueDashboard user={user} onLogout={handleLogout} />
-                ) : (
-                  <Dashboard user={user} onLogout={handleLogout} />
-                )
-              ) : (
-                <Navigate to="/login" />
-              )
-            } 
-          />
-          <Route 
-            path="/venue-dashboard" 
-            element={user ? <VenueDashboard user={user} onLogout={handleLogout} /> : <Navigate to="/login" />} 
-          />
-          <Route 
-            path="/event/:eventId" 
-            element={user ? <EventDetails user={user} onLogout={handleLogout} /> : <Navigate to="/login" />} 
-          />
-          <Route 
-            path="/checkin/:eventId" 
-            element={user ? <CheckIn user={user} onLogout={handleLogout} /> : <Navigate to="/login" />} 
-          />
-          <Route 
-            path="/" 
-            element={<Navigate to={user ? "/dashboard" : "/login"} />} 
-          />
-        </Routes>
-      </div>
+      <Routes>
+        {/* Login Route */}
+        <Route 
+          path="/login" 
+          element={
+            user ? <Navigate to="/" replace /> : <Login onLogin={handleLogin} />
+          } 
+        />
+
+        {/* Dashboard Route */}
+        <Route 
+          path="/" 
+          element={
+            !user ? (
+              <Navigate to="/login" replace />
+            ) : user.role === 'venue' ? (
+              <VenueDashboard user={user} onLogout={handleLogout} />
+            ) : (
+              <Dashboard user={user} onLogout={handleLogout} />
+            )
+          } 
+        />
+
+        {/* Event Details Route - CRITICAL: Must have :id parameter */}
+        <Route 
+          path="/event/:id" 
+          element={
+            !user ? (
+              <Navigate to="/login" replace />
+            ) : (
+              <EventDetails user={user} />
+            )
+          } 
+        />
+
+        {/* QR Scanner Route */}
+        <Route 
+          path="/scan/:id" 
+          element={
+            !user ? (
+              <Navigate to="/login" replace />
+            ) : (
+              <QRScanner user={user} />
+            )
+          } 
+        />
+
+        {/* Global QR Scanner (for venues) */}
+        <Route 
+          path="/scan" 
+          element={
+            !user ? (
+              <Navigate to="/login" replace />
+            ) : (
+              <QRScanner user={user} />
+            )
+          } 
+        />
+
+        {/* Catch all - redirect to home */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </Router>
   );
 }
