@@ -21,7 +21,11 @@ function QRScanner({ user }) {
     if (!eventId) {
       console.log('Global QR Scanner mode');
       setIsGlobalScan(true);
-      setEvent({ name: 'Global Scanner', venue_name: user.venue_name || 'All Venues' });
+      // Set placeholder event for global scan
+      setEvent({ 
+        name: 'Global Scanner', 
+        venue_name: user?.venue_name || 'All Events' 
+      });
     } else {
       console.log('Event-specific QR Scanner mode for event:', eventId);
       setIsGlobalScan(false);
@@ -34,7 +38,7 @@ function QRScanner({ user }) {
         scanner.stop().catch(console.error);
       }
     };
-  }, [eventId]);
+  }, [eventId, user]);
 
   const loadEventData = async () => {
     if (!eventId) return;
@@ -190,9 +194,9 @@ function QRScanner({ user }) {
         {event && (
           <div className="text-gray-300 text-sm">
             {isGlobalScan ? (
-              <p>Scan any event QR code at {event.venue_name}</p>
+              <p>Scan any event QR code{event.venue_name && event.venue_name !== 'All Events' ? ` at ${event.venue_name}` : ''}</p>
             ) : (
-              <p>Event: {event.name} • {event.venue_name}</p>
+              <p>{event.name}{event.venue_name ? ` • ${event.venue_name}` : ''}</p>
             )}
           </div>
         )}
