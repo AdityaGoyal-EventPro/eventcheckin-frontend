@@ -1,112 +1,112 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { eventsAPI, guestsAPI, invitationsAPI } from '../api';
-import GuestListMobile from './GuestListMobile';
-import EditGuestModal from './EditGuestModal';
-import CheckInSuccessDialog from './CheckInSuccessDialog';
+import { ArrowLeft, Camera, Search, Download, RefreshCw, Check, X } from 'lucide-react';
+import { eventsAPI, guestsAPI } from '../api';
 
-function EventDetails({ user }) {
-  const { id } = useParams();
+function EventDetailsWithVenueFeatures({ user }) {
+  const { id: eventId } = useParams();
   const navigate = useNavigate();
   const [event, setEvent] = useState(null);
   const [guests, setGuests] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
   
-  // Modal states
-  const [showEditGuest, setShowEditGuest] = useState(false);
-  const [showAddGuest, setShowAddGuest] = useState(false);
-  const [showImportCSV, setShowImportCSV] = useState(false);
-  const [showSendInvitations, setShowSendInvitations] = useState(false);
-  const [showManualSearch, setShowManualSearch] = useState(false);
-  const [showWalkIn, setShowWalkIn] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  
-  const [selectedGuest, setSelectedGuest] = useState(null);
-  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
-  const [checkedInGuest, setCheckedInGuest] = useState(null);
-  const [deleting, setDeleting] = useState(false);
+  // NEW: Search and filter states
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'checked-in', 'pending'
+  const [checkingIn, setCheckingIn] = useState(null); // ID of guest being checked in
 
   useEffect(() => {
-    loadData();
-  }, [id]);
-
-  const loadData = async () => {
-    setLoading(true);
-    setError(null);
+    loadEventData();
     
+    // Auto-refresh every 10 seconds
+    const interval = setInterval(() => {
+      loadEventData(true); // Silent refresh
+    }, 10000);
+    
+    return () => clearInterval(interval);
+  }, [eventId]);
+
+  const loadEventData = async (silent = false) => {
     try {
-      const [eventResponse, guestsResponse] = await Promise.all([
-        eventsAPI.getById(id),
-        guestsAPI.getByEvent(id)
-      ]);
+      if (!silent) setLoading(true);
+      
+      // Load event details
+      const eventResponse = await eventsAPI.getById(eventId);
+      setEvent(eventResponse.data.event);
 
-      if (eventResponse.data && eventResponse.data.event) {
-        setEvent(eventResponse.data.event);
-      } else {
-        setError('Event not found');
-      }
-
+      // Load guests
+      const guestsResponse = await guestsAPI.getByEvent(eventId);
       setGuests(guestsResponse.data.guests || []);
     } catch (error) {
-      console.error('Error loading data:', error);
-      setError('Failed to load event');
+      console.error('Error loading event data:', error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  const handleManualCheckIn = async (guest) => {
-    try {
-      await guestsAPI.checkIn(guest.id);
-      setCheckedInGuest(guest);
-      setShowSuccessDialog(true);
-      setShowManualSearch(false);
-      loadData();
-    } catch (error) {
-      alert('Check-in failed');
+  const handleRefresh = () => {
+    setRefreshing(true);
+    loadEventData();
+  };
+
+  // NEW: Manual check-in function
+  const handleManualCheckIn = async (guestId, guestName) => {
+    if (!window.confirm(`Check in ${guestName}?`)) {
+      return;
     }
-  };
 
-  const handleEditGuest = (guest) => {
-    setSelectedGuest(guest);
-    setShowEditGuest(true);
-  };
-
-  const handleDeleteGuest = async (guestId) => {
-    if (!window.confirm('Remove this guest?')) return;
+    setCheckingIn(guestId);
     
     try {
-      await guestsAPI.delete(guestId);
-      loadData();
+      await guestsAPI.checkIn(guestId);
+      
+      // Reload guests to show updated status
+      const guestsResponse = await guestsAPI.getByEvent(eventId);
+      setGuests(guestsResponse.data.guests || []);
+      
+      // Optional: Show success message
+      console.log(`✅ ${guestName} checked in successfully`);
     } catch (error) {
-      alert('Failed to delete guest');
-    }
-  };
-
-  const handleDeleteEvent = async () => {
-    setDeleting(true);
-    try {
-      await eventsAPI.softDelete(id, user.role);
-      alert('Event deleted');
-      navigate('/');
-    } catch (error) {
-      alert('Failed to delete event');
+      console.error('Error checking in guest:', error);
+      alert(`Failed to check in ${guestName}. Please try again.`);
     } finally {
-      setDeleting(false);
-      setShowDeleteConfirm(false);
+      setCheckingIn(null);
     }
   };
 
-  const isHost = user.role === 'host';
-  const stats = {
-    total: guests.length,
-    checkedIn: guests.filter(g => g.checked_in).length,
-    vip: guests.filter(g => g.category === 'VIP').length,
-    walkIns: guests.filter(g => g.is_walk_in).length
+  // NEW: Filter and search logic
+  const getFilteredGuests = () => {
+    let filtered = guests;
+
+    // Apply status filter
+    if (statusFilter === 'checked-in') {
+      filtered = filtered.filter(g => g.checked_in);
+    } else if (statusFilter === 'pending') {
+      filtered = filtered.filter(g => !g.checked_in);
+    }
+
+    // Apply search filter
+    if (searchTerm) {
+      filtered = filtered.filter(g =>
+        g.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (g.email && g.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (g.phone && g.phone.includes(searchTerm))
+      );
+    }
+
+    return filtered;
   };
 
-  if (loading) {
+  const filteredGuests = getFilteredGuests();
+
+  // Stats
+  const totalGuests = guests.length;
+  const checkedInCount = guests.filter(g => g.checked_in).length;
+  const pendingCount = totalGuests - checkedInCount;
+
+  if (loading && !event) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -117,679 +117,208 @@ function EventDetails({ user }) {
     );
   }
 
-  if (error || !event) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full text-center">
-          <div className="text-gray-400 text-6xl mb-4">📋</div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Event Not Found</h2>
-          <p className="text-gray-600 mb-6">{error || 'This event doesn\'t exist or you don\'t have access to it.'}</p>
-          <button onClick={() => navigate('/')} className="btn btn-primary w-full">
-            ← Back to Dashboard
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <button onClick={() => navigate('/')} className="btn btn-ghost btn-sm">
-            ← Back
-          </button>
-          <button onClick={() => setShowDeleteConfirm(true)} className="btn btn-danger btn-sm">
-            🗑️ Delete
-          </button>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        {/* Event Header */}
-        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-6 mb-6 text-white">
-          <h1 className="text-3xl font-bold mb-2">{event.name}</h1>
-          <div className="flex flex-wrap gap-4 text-sm text-indigo-100">
-            <span>📅 {event.date}</span>
-            <span>🕐 {event.time_start} - {event.time_end}</span>
-            <span>📍 {event.venue_name}</span>
-            {event.host_name && <span>👤 {event.host_name}</span>}
-          </div>
-        </div>
-
-        {/* Guest Management - Host Only */}
-        {isHost && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Guest Management</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <button onClick={() => setShowAddGuest(true)} className="btn btn-primary btn-md">
-                ➕ Add Guest
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between mb-4">
+            <button
+              onClick={() => navigate(-1)}
+              className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              <span>Back</span>
+            </button>
+            
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="p-2 hover:bg-gray-100 rounded-lg transition"
+                title="Refresh"
+              >
+                <RefreshCw className={`w-5 h-5 text-gray-600 ${refreshing ? 'animate-spin' : ''}`} />
               </button>
-              <button onClick={() => setShowImportCSV(true)} className="btn btn-secondary btn-md">
-                📤 Import CSV
-              </button>
-              <button onClick={() => setShowSendInvitations(true)} className="btn btn-secondary btn-md">
-                ✉️ Send Invitations
+              
+              <button
+                onClick={() => navigate(`/scan/${eventId}`)}
+                className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition"
+              >
+                <Camera className="w-5 h-5" />
+                <span>Scan QR</span>
               </button>
             </div>
           </div>
-        )}
 
-        {/* Check-In Actions */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Check-In</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <button onClick={() => navigate(`/scan/${id}`)} className="btn btn-success btn-md">
-              📷 Scan QR
-            </button>
-            <button onClick={() => setShowManualSearch(true)} className="btn btn-secondary btn-md">
-              🔍 Manual Search
-            </button>
-            <button onClick={() => setShowWalkIn(true)} className="btn btn-warning btn-md">
-              🚶 Walk-In
-            </button>
+          {/* Event Info */}
+          {event && (
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">{event.name}</h1>
+              <div className="flex flex-wrap gap-4 text-sm text-gray-600">
+                <span>📅 {event.date}</span>
+                <span>🕐 {event.time_start}{event.time_end ? ` - ${event.time_end}` : ''}</span>
+                <span>📍 {event.venue_name}</span>
+                {event.host_name && <span>👤 {event.host_name}</span>}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+            <div className="text-3xl font-bold text-gray-900">{totalGuests}</div>
+            <div className="text-sm text-gray-600">Total Guests</div>
+          </div>
+          
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+            <div className="text-3xl font-bold text-green-600">{checkedInCount}</div>
+            <div className="text-sm text-gray-600">Checked In</div>
+          </div>
+          
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+            <div className="text-3xl font-bold text-orange-600">{pendingCount}</div>
+            <div className="text-sm text-gray-600">Pending</div>
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200 text-center">
-            <div className="text-3xl font-bold text-indigo-600">{stats.total}</div>
-            <div className="text-sm text-gray-600 mt-1">Total</div>
+        {/* NEW: Search and Filter Bar */}
+        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Search Bar */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search by name, email, or phone..."
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              />
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded"
+                >
+                  <X className="w-4 h-4 text-gray-400" />
+                </button>
+              )}
+            </div>
+
+            {/* Status Filter */}
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            >
+              <option value="all">All Guests ({totalGuests})</option>
+              <option value="checked-in">✅ Checked In ({checkedInCount})</option>
+              <option value="pending">⏳ Pending ({pendingCount})</option>
+            </select>
           </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200 text-center">
-            <div className="text-3xl font-bold text-green-600">{stats.checkedIn}</div>
-            <div className="text-sm text-gray-600 mt-1">Checked In</div>
-          </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200 text-center">
-            <div className="text-3xl font-bold text-purple-600">{stats.vip}</div>
-            <div className="text-sm text-gray-600 mt-1">VIP</div>
-          </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200 text-center">
-            <div className="text-3xl font-bold text-amber-600">{stats.walkIns}</div>
-            <div className="text-sm text-gray-600 mt-1">Walk-Ins</div>
-          </div>
+          
+          {/* Results count */}
+          {(searchTerm || statusFilter !== 'all') && (
+            <div className="mt-3 text-sm text-gray-600">
+              Showing {filteredGuests.length} of {totalGuests} guests
+              {searchTerm && ` matching "${searchTerm}"`}
+            </div>
+          )}
         </div>
 
         {/* Guest List */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="p-6 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">Guest List ({guests.length})</h2>
+          <div className="p-4 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-900">
+              Guest List
+            </h2>
           </div>
-          <GuestListMobile
-            guests={guests}
-            onCheckIn={handleManualCheckIn}
-            onEdit={handleEditGuest}
-            onDelete={handleDeleteGuest}
-          />
-        </div>
-      </div>
 
-      {/* ALL MODALS */}
-      
-      {showAddGuest && (
-        <AddGuestModal
-          eventId={id}
-          onClose={() => setShowAddGuest(false)}
-          onSuccess={() => {
-            setShowAddGuest(false);
-            loadData();
-          }}
-        />
-      )}
-
-      {showImportCSV && (
-        <ImportCSVModal
-          eventId={id}
-          onClose={() => setShowImportCSV(false)}
-          onSuccess={() => {
-            setShowImportCSV(false);
-            loadData();
-          }}
-        />
-      )}
-
-      {showSendInvitations && (
-        <SendInvitationsModal
-          eventId={id}
-          guests={guests}
-          onClose={() => setShowSendInvitations(false)}
-        />
-      )}
-
-      {showManualSearch && (
-        <ManualSearchModal
-          guests={guests}
-          onClose={() => setShowManualSearch(false)}
-          onCheckIn={handleManualCheckIn}
-        />
-      )}
-
-      {showWalkIn && (
-        <WalkInModal
-          eventId={id}
-          onClose={() => setShowWalkIn(false)}
-          onSuccess={(newGuest) => {
-            setShowWalkIn(false);
-            setCheckedInGuest(newGuest);
-            setShowSuccessDialog(true);
-            loadData();
-          }}
-        />
-      )}
-
-      {showEditGuest && selectedGuest && (
-        <EditGuestModal
-          guest={selectedGuest}
-          onClose={() => {
-            setShowEditGuest(false);
-            setSelectedGuest(null);
-          }}
-          onSave={() => {
-            setShowEditGuest(false);
-            setSelectedGuest(null);
-            loadData();
-          }}
-        />
-      )}
-
-      {showSuccessDialog && checkedInGuest && (
-        <CheckInSuccessDialog
-          guest={checkedInGuest}
-          event={event}
-          onClose={() => {
-            setShowSuccessDialog(false);
-            setCheckedInGuest(null);
-          }}
-        />
-      )}
-
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
-            <h3 className="text-xl font-bold mb-4">Delete Event?</h3>
-            <p className="text-gray-600 mb-6">This will permanently delete <strong>{event.name}</strong> and all guest data.</p>
-            <div className="flex gap-3">
-              <button onClick={() => setShowDeleteConfirm(false)} className="btn btn-secondary flex-1">Cancel</button>
-              <button onClick={handleDeleteEvent} className="btn btn-danger flex-1" disabled={deleting}>
-                {deleting ? 'Deleting...' : 'Delete'}
-              </button>
+          {filteredGuests.length === 0 ? (
+            <div className="p-12 text-center text-gray-500">
+              {searchTerm || statusFilter !== 'all' ? (
+                <>
+                  <p className="text-lg mb-2">No guests found</p>
+                  <button
+                    onClick={() => {
+                      setSearchTerm('');
+                      setStatusFilter('all');
+                    }}
+                    className="text-indigo-600 hover:text-indigo-700"
+                  >
+                    Clear filters
+                  </button>
+                </>
+              ) : (
+                <p>No guests yet</p>
+              )}
             </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ============================================
-// ADD GUEST MODAL
-// ============================================
-function AddGuestModal({ eventId, onClose, onSuccess }) {
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    category: 'General',
-    plus_ones: 0
-  });
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-
-    try {
-      await guestsAPI.create({
-        ...formData,
-        event_id: eventId
-      });
-      onSuccess();
-    } catch (error) {
-      alert('Failed to add guest');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-        <div className="p-6 border-b">
-          <h2 className="text-2xl font-bold">Add Guest</h2>
-        </div>
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Name *</label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => setFormData({...formData, name: e.target.value})}
-              required
-              className="w-full px-4 py-3 border rounded-lg"
-              placeholder="John Doe"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Email</label>
-            <input
-              type="email"
-              value={formData.email}
-              onChange={(e) => setFormData({...formData, email: e.target.value})}
-              className="w-full px-4 py-3 border rounded-lg"
-              placeholder="john@example.com"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Phone</label>
-            <input
-              type="tel"
-              value={formData.phone}
-              onChange={(e) => setFormData({...formData, phone: e.target.value})}
-              className="w-full px-4 py-3 border rounded-lg"
-              placeholder="+1234567890"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Category</label>
-            <select
-              value={formData.category}
-              onChange={(e) => setFormData({...formData, category: e.target.value})}
-              className="w-full px-4 py-3 border rounded-lg"
-            >
-              <option value="General">General</option>
-              <option value="VIP">VIP</option>
-              <option value="Staff">Staff</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Plus Ones</label>
-            <input
-              type="number"
-              min="0"
-              value={formData.plus_ones}
-              onChange={(e) => setFormData({...formData, plus_ones: parseInt(e.target.value) || 0})}
-              className="w-full px-4 py-3 border rounded-lg"
-            />
-          </div>
-          <div className="flex gap-3 pt-4">
-            <button type="button" onClick={onClose} className="btn btn-secondary flex-1">Cancel</button>
-            <button type="submit" className="btn btn-primary flex-1" disabled={loading}>
-              {loading ? 'Adding...' : 'Add Guest'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-// ============================================
-// IMPORT CSV MODAL (WITH SAMPLE FILE)
-// ============================================
-function ImportCSVModal({ eventId, onClose, onSuccess }) {
-  const [file, setFile] = useState(null);
-  const [loading, setLoading] = useState(false);
-
-  const downloadSampleCSV = () => {
-    const csvContent = `name,email,phone,category
-John Doe,john@example.com,+1234567890,General
-Jane Smith,jane@example.com,+0987654321,VIP
-Bob Johnson,bob@example.com,+1122334455,Staff`;
-    
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'guest_list_sample.csv';
-    a.click();
-    window.URL.revokeObjectURL(url);
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!file) return;
-
-    setLoading(true);
-    const reader = new FileReader();
-    
-    reader.onload = async (event) => {
-      try {
-        const text = event.target.result;
-        const rows = text.split('\n').filter(row => row.trim());
-        const headers = rows[0].split(',').map(h => h.trim().toLowerCase());
-        
-        let imported = 0;
-        for (let i = 1; i < rows.length; i++) {
-          const values = rows[i].split(',').map(v => v.trim());
-          const guest = {
-            event_id: eventId,
-            name: values[headers.indexOf('name')] || '',
-            email: values[headers.indexOf('email')] || '',
-            phone: values[headers.indexOf('phone')] || '',
-            category: values[headers.indexOf('category')] || 'General'
-          };
-          
-          if (guest.name) {
-            await guestsAPI.create(guest);
-            imported++;
-          }
-        }
-        
-        alert(`Successfully imported ${imported} guests!`);
-        onSuccess();
-      } catch (error) {
-        alert('Failed to import CSV. Please check the file format.');
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    reader.readAsText(file);
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-        <div className="p-6 border-b">
-          <h2 className="text-2xl font-bold">Import Guest List</h2>
-        </div>
-        
-        <div className="p-6 space-y-4">
-          {/* Sample CSV Download */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h3 className="font-semibold text-blue-900 mb-2">📄 Need a template?</h3>
-            <p className="text-sm text-blue-700 mb-3">
-              Download our sample CSV file to see the correct format
-            </p>
-            <button
-              onClick={downloadSampleCSV}
-              className="btn btn-secondary btn-sm w-full"
-            >
-              Download Sample CSV
-            </button>
-          </div>
-
-          {/* CSV Format Info */}
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-            <p className="text-sm font-medium text-gray-700 mb-2">Required Format:</p>
-            <code className="text-xs bg-white px-2 py-1 rounded border block">
-              name,email,phone,category
-            </code>
-            <p className="text-xs text-gray-600 mt-2">
-              • First row must be headers<br/>
-              • Name is required<br/>
-              • Email, phone, category are optional
-            </p>
-          </div>
-
-          {/* File Upload */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">Select CSV File</label>
-              <input
-                type="file"
-                accept=".csv"
-                onChange={(e) => setFile(e.target.files[0])}
-                className="w-full px-4 py-3 border rounded-lg"
-              />
-            </div>
-
-            <div className="flex gap-3">
-              <button type="button" onClick={onClose} className="btn btn-secondary flex-1">
-                Cancel
-              </button>
-              <button type="submit" className="btn btn-primary flex-1" disabled={!file || loading}>
-                {loading ? 'Importing...' : 'Import Guests'}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ============================================
-// SEND INVITATIONS MODAL
-// ============================================
-function SendInvitationsModal({ eventId, guests, onClose }) {
-  const [channels, setChannels] = useState({ email: true, sms: false });
-  const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState('');
-
-  const guestsWithEmail = guests.filter(g => g.email).length;
-  const guestsWithPhone = guests.filter(g => g.phone).length;
-
-  const handleSend = async () => {
-    setLoading(true);
-    setStatus('Sending invitations...');
-
-    try {
-      console.log('Sending invitations with channels:', channels);
-      console.log('Event ID:', eventId);
-      
-      // FIXED: Send channels object directly, not array!
-      const response = await invitationsAPI.sendBulk(eventId, channels);
-      
-      console.log('Response:', response.data);
-      
-      const { results } = response.data;
-      const totalSent = (results.email?.sent || 0) + (results.sms?.sent || 0);
-      
-      if (totalSent > 0) {
-        setStatus(`✅ Successfully sent ${totalSent} invitations!`);
-      } else {
-        setStatus('⚠️ No invitations sent. Check guest contact info.');
-      }
-      
-      setTimeout(() => {
-        onClose();
-      }, 3000);
-    } catch (error) {
-      console.error('Send invitations error:', error);
-      console.error('Error response:', error.response?.data);
-      setStatus(`❌ Failed: ${error.response?.data?.error || error.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
-        <h2 className="text-2xl font-bold mb-4">Send Invitations</h2>
-        
-        <div className="space-y-4 mb-6">
-          {/* Email Channel */}
-          <label className="flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-gray-50">
-            <div className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                checked={channels.email}
-                onChange={(e) => setChannels({...channels, email: e.target.checked})}
-                className="w-5 h-5"
-              />
-              <div>
-                <div className="font-medium">Email Invitations</div>
-                <div className="text-sm text-gray-600">{guestsWithEmail} guests with email</div>
-              </div>
-            </div>
-            <span className="text-2xl">📧</span>
-          </label>
-
-          {/* SMS Channel */}
-          <label className="flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-gray-50">
-            <div className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                checked={channels.sms}
-                onChange={(e) => setChannels({...channels, sms: e.target.checked})}
-                className="w-5 h-5"
-              />
-              <div>
-                <div className="font-medium">SMS Invitations</div>
-                <div className="text-sm text-gray-600">{guestsWithPhone} guests with phone</div>
-              </div>
-            </div>
-            <span className="text-2xl">📱</span>
-          </label>
-        </div>
-
-        {/* Debug Info */}
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mb-4 text-xs">
-          <p className="font-medium mb-1">Debug Info:</p>
-          <p>Email: {channels.email ? '✓ Enabled' : '✗ Disabled'} ({guestsWithEmail} recipients)</p>
-          <p>SMS: {channels.sms ? '✓ Enabled' : '✗ Disabled'} ({guestsWithPhone} recipients)</p>
-        </div>
-
-        {status && (
-          <div className={`p-4 rounded-lg mb-4 text-sm ${
-            status.includes('✅') ? 'bg-green-50 text-green-700 border border-green-200' : 
-            status.includes('❌') ? 'bg-red-50 text-red-700 border border-red-200' : 
-            status.includes('⚠️') ? 'bg-amber-50 text-amber-700 border border-amber-200' :
-            'bg-blue-50 text-blue-700 border border-blue-200'
-          }`}>
-            {status}
-          </div>
-        )}
-
-        <div className="flex gap-3">
-          <button onClick={onClose} className="btn btn-secondary flex-1" disabled={loading}>
-            Cancel
-          </button>
-          <button 
-            onClick={handleSend} 
-            className="btn btn-primary flex-1" 
-            disabled={loading || (!channels.email && !channels.sms)}
-          >
-            {loading ? 'Sending...' : 'Send Invitations'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ============================================
-// MANUAL SEARCH MODAL
-// ============================================
-function ManualSearchModal({ guests, onClose, onCheckIn }) {
-  const [search, setSearch] = useState('');
-  
-  const filtered = guests.filter(g =>
-    g.name.toLowerCase().includes(search.toLowerCase()) ||
-    g.email?.toLowerCase().includes(search.toLowerCase()) ||
-    g.phone?.includes(search)
-  );
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden">
-        <div className="p-6 border-b">
-          <h2 className="text-2xl font-bold mb-4">Manual Search & Check-In</h2>
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name, email, or phone..."
-            className="w-full px-4 py-3 border rounded-lg"
-            autoFocus
-          />
-        </div>
-        <div className="overflow-y-auto max-h-96 p-6">
-          {filtered.length === 0 ? (
-            <p className="text-gray-600 text-center py-8">No guests found</p>
           ) : (
-            <div className="space-y-3">
-              {filtered.map(guest => (
-                <div key={guest.id} className="border rounded-lg p-4 flex justify-between items-center hover:bg-gray-50">
-                  <div>
-                    <div className="font-semibold">{guest.name}</div>
-                    <div className="text-sm text-gray-600">{guest.email}</div>
-                    {guest.checked_in && (
-                      <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded mt-1 inline-block">
-                        ✓ Checked In
-                      </span>
+            <div className="divide-y divide-gray-200">
+              {filteredGuests.map((guest) => (
+                <div
+                  key={guest.id}
+                  className={`p-4 hover:bg-gray-50 transition ${
+                    guest.checked_in ? 'bg-green-50' : ''
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    {/* Guest Info */}
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-1">
+                        <h3 className="font-semibold text-gray-900">{guest.name}</h3>
+                        {guest.checked_in && (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">
+                            <Check className="w-3 h-3" />
+                            Checked In
+                          </span>
+                        )}
+                      </div>
+                      
+                      <div className="text-sm text-gray-600 space-y-1">
+                        {guest.email && <div>📧 {guest.email}</div>}
+                        {guest.phone && <div>📱 {guest.phone}</div>}
+                        {guest.checked_in && guest.checked_in_time && (
+                          <div className="text-green-600">
+                            ✓ {new Date(guest.checked_in_time).toLocaleString()}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* NEW: Manual Check-In Button */}
+                    {!guest.checked_in && (
+                      <button
+                        onClick={() => handleManualCheckIn(guest.id, guest.name)}
+                        disabled={checkingIn === guest.id}
+                        className="ml-4 flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {checkingIn === guest.id ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            <span>Checking in...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Check className="w-4 h-4" />
+                            <span>Check In</span>
+                          </>
+                        )}
+                      </button>
                     )}
                   </div>
-                  {!guest.checked_in && (
-                    <button onClick={() => onCheckIn(guest)} className="btn btn-success btn-sm">
-                      Check In
-                    </button>
-                  )}
                 </div>
               ))}
             </div>
           )}
         </div>
-        <div className="p-6 border-t">
-          <button onClick={onClose} className="btn btn-secondary w-full">Close</button>
-        </div>
       </div>
     </div>
   );
 }
 
-// ============================================
-// WALK-IN MODAL
-// ============================================
-function WalkInModal({ eventId, onClose, onSuccess }) {
-  const [name, setName] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-
-    try {
-      const response = await guestsAPI.create({
-        event_id: eventId,
-        name: name,
-        is_walk_in: true,
-        category: 'General'
-      });
-      
-      const newGuest = response.data.guest;
-      await guestsAPI.checkIn(newGuest.id);
-      
-      onSuccess({ ...newGuest, checked_in: true });
-    } catch (error) {
-      alert('Failed to add walk-in');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
-        <h2 className="text-2xl font-bold mb-4">Walk-In Guest</h2>
-        <p className="text-sm text-gray-600 mb-4">Add and check in a guest who arrived without an invitation.</p>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Guest Name *</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              className="w-full px-4 py-3 border rounded-lg"
-              placeholder="Enter name..."
-              autoFocus
-            />
-          </div>
-          <div className="flex gap-3">
-            <button type="button" onClick={onClose} className="btn btn-secondary flex-1">Cancel</button>
-            <button type="submit" className="btn btn-primary flex-1" disabled={loading}>
-              {loading ? 'Processing...' : 'Add & Check In'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-export default EventDetails;
+export default EventDetailsWithVenueFeatures;
