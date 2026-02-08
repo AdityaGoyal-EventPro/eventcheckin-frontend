@@ -1,3 +1,4 @@
+import AdminDashboard from './components/AdminDashboard';
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './components/Login';
@@ -92,7 +93,19 @@ function App() {
             )
           } 
         />
-
+{/* Admin Route - Only for admin users */}
+<Route 
+  path="/admin" 
+  element={
+    !user ? (
+      <Navigate to="/login" replace />
+    ) : user.role === 'admin' ? (
+      <AdminDashboard user={user} onLogout={handleLogout} />
+    ) : (
+      <Navigate to="/" replace />
+    )
+  } 
+/>
         {/* Global QR Scanner (for venues) */}
         <Route 
           path="/scan" 
