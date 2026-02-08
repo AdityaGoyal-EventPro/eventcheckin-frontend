@@ -6,25 +6,62 @@ function Dashboard({ user, onLogout }) {
   const [events, setEvents] = useState([]);
   const [venues, setVenues] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
     loadEvents();
     loadVenues();
-    const interval = setInterval(loadEvents, 5000);
+    const interval = setInterval(loadEvents, 10000); // 10 seconds
     return () => clearInterval(interval);
   }, []);
 
   const loadEvents = async () => {
     try {
-      const response = user.role === 'host' 
-        ? await eventsAPI.getByHost(user.id)
-        : await eventsAPI.getByVenue(user.venue_id);
-      
-      setEvents(response.data.events || []);
+      // CRITICAL SAFETY CHECK
+      if (!user) {
+        console.error('No user object found');
+        setError('User session invalid. Please log in again.');
+        setEvents([]);
+        setLoading(false);
+        return;
+      }
+
+      if (!user.id) {
+        console.error('User has no ID:', user);
+        setError('User ID missing. Please log out and log in again.');
+        setEvents([]);
+        setLoading(false);
+        return;
+      }
+
+      console.log('Loading events for user:', { id: user.id, role: user.role, venue_id: user.venue_id });
+
+      if (user.role === 'host') {
+        const response = await eventsAPI.getByHost(user.id);
+        console.log('Host events loaded:', response.data.events?.length || 0);
+        setEvents(response.data.events || []);
+      } else if (user.role === 'venue') {
+        if (!user.venue_id) {
+          console.error('Venue user has no venue_id:', user);
+          setError('Venue ID missing. Please contact support.');
+          setEvents([]);
+          setLoading(false);
+          return;
+        }
+        const response = await eventsAPI.getByVenue(user.venue_id);
+        console.log('Venue events loaded:', response.data.events?.length || 0);
+        setEvents(response.data.events || []);
+      } else {
+        console.error('Unknown user role:', user.role);
+        setError('Invalid user role. Please contact support.');
+        setEvents([]);
+      }
     } catch (error) {
       console.error('Error loading events:', error);
+      setError('Failed to load events. Please try again.');
+      setEvents([]);
     } finally {
       setLoading(false);
     }
@@ -40,6 +77,7 @@ function Dashboard({ user, onLogout }) {
   };
 
   const handleEventClick = (eventId) => {
+    console.log('Navigating to event:', eventId);
     navigate(`/event/${eventId}`);
   };
 
@@ -48,7 +86,26 @@ function Dashboard({ user, onLogout }) {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+          <p className="text-gray-600">Loading your dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error State
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full">
+          <div className="text-red-500 text-6xl mb-4 text-center">⚠️</div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4 text-center">Authentication Error</h2>
+          <p className="text-gray-600 mb-6 text-center">{error}</p>
+          <button
+            onClick={onLogout}
+            className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold py-3 rounded-lg hover:from-indigo-700 hover:to-purple-700 transition"
+          >
+            Log Out & Try Again
+          </button>
         </div>
       </div>
     );
@@ -64,16 +121,24 @@ function Dashboard({ user, onLogout }) {
               Check-In Pro
             </span>
           </h1>
-          <button onClick={onLogout} className="btn btn-ghost btn-sm">
-            Logout
-          </button>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-gray-600">
+              {user.name} ({user.role})
+            </span>
+            <button onClick={onLogout} className="btn btn-ghost btn-sm">
+              Logout
+            </button>
+          </div>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-8">
         <h2 className="text-3xl font-bold mb-2">Welcome, {user.name}</h2>
-        <p className="text-gray-600 mb-6">Manage your events</p>
+        <p className="text-gray-600 mb-6">
+          {user.role === 'host' ? 'Manage your events' : `Managing: ${user.venue_name || 'Venue'}`}
+        </p>
 
+        {/* Create Event Button - Host Only */}
         {user.role === 'host' && (
           <button 
             onClick={() => setShowCreateModal(true)}
@@ -83,10 +148,25 @@ function Dashboard({ user, onLogout }) {
           </button>
         )}
 
+        {/* Debug Info - Remove in production */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-xs">
+          <p className="font-semibold mb-1">Debug Info:</p>
+          <p>User ID: {user.id || 'MISSING'}</p>
+          <p>Role: {user.role}</p>
+          <p>Venue ID: {user.venue_id || 'N/A'}</p>
+          <p>Events Count: {events.length}</p>
+        </div>
+
         {/* Events Grid */}
         {events.length === 0 ? (
           <div className="bg-white rounded-xl p-16 text-center">
-            <p className="text-gray-600">No events yet</p>
+            <div className="text-gray-400 text-6xl mb-4">📅</div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">No Events Yet</h3>
+            <p className="text-gray-600">
+              {user.role === 'host' 
+                ? 'Create your first event to get started!' 
+                : 'No events scheduled at your venue yet.'}
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -101,6 +181,7 @@ function Dashboard({ user, onLogout }) {
                   <div>📅 {event.date}</div>
                   <div>🕐 {event.time_start} - {event.time_end}</div>
                   {event.venue_name && <div>📍 {event.venue_name}</div>}
+                  {event.host_name && <div>👤 {event.host_name}</div>}
                 </div>
                 <div className="flex justify-between items-center mb-3">
                   <div className="text-center">
@@ -146,7 +227,9 @@ function Dashboard({ user, onLogout }) {
   );
 }
 
-// Create Event Modal Component
+// ============================================
+// CREATE EVENT MODAL
+// ============================================
 function CreateEventModal({ user, venues, onClose, onSuccess }) {
   const [formData, setFormData] = useState({
     name: '',
