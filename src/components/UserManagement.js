@@ -112,6 +112,10 @@ function UserManagement({ user }) {
     return matchesSearch && matchesRole;
   });
 
+  const pendingUsers = users.filter(u => u.status === 'pending');
+  const activeUsers = filteredUsers.filter(u => u.status === 'active');
+  const suspendedUsers = filteredUsers.filter(u => u.status === 'suspended');
+
   const getRoleIcon = (role) => {
     switch (role) {
       case 'admin': return <Shield className="w-5 h-5 text-red-600" />;
@@ -152,8 +156,70 @@ function UserManagement({ user }) {
       {/* Header */}
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-gray-900">User Management</h2>
-        <p className="text-gray-600 mt-1">{users.length} total users</p>
+        <p className="text-gray-600 mt-1">
+          {users.length} total users • {pendingUsers.length} pending approval
+        </p>
       </div>
+
+      {/* PENDING APPROVALS - PRIORITY SECTION */}
+      {pendingUsers.length > 0 && (
+        <div className="bg-amber-50 border-2 border-amber-200 rounded-xl p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-amber-500 rounded-lg flex items-center justify-center">
+                <span className="text-white text-xl">⏳</span>
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-amber-900">
+                  Pending Approvals ({pendingUsers.length})
+                </h3>
+                <p className="text-sm text-amber-700">
+                  Review and approve new venue manager accounts
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {pendingUsers.map(u => (
+              <div key={u.id} className="bg-white rounded-lg p-4 border border-amber-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4 flex-1">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-semibold text-gray-900">{u.name}</span>
+                        <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
+                          {u.role}
+                        </span>
+                      </div>
+                      <div className="text-sm text-gray-600">{u.email}</div>
+                      {u.venue_name && (
+                        <div className="text-sm text-gray-600 mt-1">
+                          🏢 {u.venue_name}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleApprove(u.id)}
+                      className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 font-medium transition flex items-center gap-2"
+                    >
+                      ✅ Approve
+                    </button>
+                    <button
+                      onClick={() => handleReject(u.id)}
+                      className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 font-medium transition flex items-center gap-2"
+                    >
+                      ❌ Reject
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
