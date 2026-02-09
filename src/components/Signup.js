@@ -17,25 +17,25 @@ function Signup() {
   const [loading, setLoading] = useState(false);
   const [phoneError, setPhoneError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
-  const [countdown, setCountdown] = useState(5);
+  const [redirectSeconds, setRedirectSeconds] = useState(0);
 
   useEffect(() => {
     loadVenues();
   }, []);
 
-  // Countdown effect
+  // Countdown and redirect
   useEffect(() => {
-    if (successMessage && countdown > 0) {
+    if (redirectSeconds > 0) {
+      console.log('⏰ Countdown:', redirectSeconds);
       const timer = setTimeout(() => {
-        console.log('Countdown:', countdown);
-        setCountdown(countdown - 1);
+        setRedirectSeconds(redirectSeconds - 1);
       }, 1000);
       return () => clearTimeout(timer);
-    } else if (successMessage && countdown === 0) {
-      console.log('⏰ Countdown finished, redirecting...');
+    } else if (redirectSeconds === 0 && successMessage) {
+      console.log('🚀 Redirecting now...');
       window.location.href = '/login';
     }
-  }, [successMessage, countdown]);
+  }, [redirectSeconds, successMessage]);
 
   const loadVenues = async () => {
     try {
@@ -83,66 +83,60 @@ function Signup() {
     validatePhone(limited);
   };
 
-  const handleSubmit = (e) => {
-    // CRITICAL: Prevent default form submission
-    e.preventDefault();
-    e.stopPropagation();
-    
-    console.log('🔍 Form submit triggered');
-    console.log('📝 Form data:', formData);
-    
-    // Run async submission
-    submitForm();
-  };
-
-  const submitForm = async () => {
-    console.log('🚀 Starting form submission...');
+  // CRITICAL: This handles the button click
+  const handleButtonClick = () => {
+    console.log('🖱️ Button clicked - preventing default');
     
     setError('');
     setSuccessMessage('');
 
     // Validation
     if (!formData.name || !formData.email || !formData.phone || !formData.password) {
-      console.log('❌ Validation: Empty fields');
+      console.log('❌ Empty fields');
       setError('Please fill in all required fields');
       return;
     }
 
     if (!validatePhone(formData.phone)) {
-      console.log('❌ Validation: Invalid phone');
+      console.log('❌ Invalid phone');
       return;
     }
 
     if (formData.phone.length !== 10) {
-      console.log('❌ Validation: Phone not 10 digits');
+      console.log('❌ Phone not 10 digits');
       setError('Mobile number must be exactly 10 digits');
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      console.log('❌ Validation: Passwords do not match');
+      console.log('❌ Passwords do not match');
       setError('Passwords do not match');
       return;
     }
 
     if (formData.password.length < 6) {
-      console.log('❌ Validation: Password too short');
+      console.log('❌ Password too short');
       setError('Password must be at least 6 characters');
       return;
     }
 
     if (formData.role === 'venue' && !formData.venue_id) {
-      console.log('❌ Validation: No venue selected');
+      console.log('❌ No venue selected');
       setError('Please select a venue');
       return;
     }
 
-    console.log('✅ Validation passed');
+    console.log('✅ All validations passed - submitting...');
+    
+    // Submit
+    submitForm();
+  };
+
+  const submitForm = async () => {
     setLoading(true);
+    console.log('📡 Calling API...');
 
     try {
-      console.log('📡 Sending request to:', `${process.env.REACT_APP_API_URL}/api/auth/signup`);
-      
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/auth/signup`, {
         method: 'POST',
         headers: {
@@ -160,15 +154,14 @@ function Signup() {
 
       console.log('📥 Response status:', response.status);
       const data = await response.json();
-      console.log('📦 Response data:', data);
+      console.log('📦 Data:', data);
 
       if (response.ok && data.success) {
-        console.log('✅ Account created successfully!');
+        console.log('✅ Success!');
         
-        // Show success message
         setSuccessMessage(
           data.message || 
-          'Account created successfully! Your account is pending admin approval. Check your email for details.'
+          'Account created! Pending admin approval. Check your email.'
         );
         
         // Clear form
@@ -185,16 +178,16 @@ function Signup() {
         setLoading(false);
         
         // Start countdown
-        setCountdown(5);
-        console.log('⏰ Starting countdown from 5...');
+        setRedirectSeconds(5);
+        console.log('⏰ Starting 5 second countdown...');
       } else {
-        console.log('❌ Signup failed:', data.error);
+        console.log('❌ Failed:', data.error);
         setError(data.error || 'Failed to create account');
         setLoading(false);
       }
     } catch (err) {
       console.error('💥 Error:', err);
-      setError('Failed to connect to server. Please try again.');
+      setError('Failed to connect. Please try again.');
       setLoading(false);
     }
   };
@@ -213,18 +206,18 @@ function Signup() {
 
         {/* Success Message */}
         {successMessage && (
-          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl">
+          <div className="mb-6 p-4 bg-green-50 border-2 border-green-200 rounded-xl">
             <div className="flex items-start gap-3">
-              <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+              <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
-                <p className="text-sm text-green-800 font-medium">Success!</p>
+                <p className="text-sm text-green-800 font-bold">✅ Success!</p>
                 <p className="text-sm text-green-700 mt-1">{successMessage}</p>
                 <div className="mt-3 flex items-center gap-2">
-                  <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
-                    <span className="text-white font-bold text-sm">{countdown}</span>
+                  <div className="w-10 h-10 bg-green-600 rounded-full flex items-center justify-center animate-pulse">
+                    <span className="text-white font-bold text-lg">{redirectSeconds}</span>
                   </div>
-                  <p className="text-xs text-green-600">
-                    Redirecting to login page...
+                  <p className="text-sm text-green-600 font-medium">
+                    Redirecting to login...
                   </p>
                 </div>
               </div>
@@ -234,16 +227,16 @@ function Signup() {
 
         {/* Error Message */}
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
+          <div className="mb-6 p-4 bg-red-50 border-2 border-red-200 rounded-xl flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-            <p className="text-sm text-red-800">{error}</p>
+            <p className="text-sm text-red-800 font-medium">{error}</p>
           </div>
         )}
 
         {/* Form */}
         <div className="bg-white rounded-2xl shadow-xl p-8">
-          {/* CRITICAL: onSubmit on form, not button */}
-          <form onSubmit={handleSubmit} className="space-y-5">
+          {/* NO FORM TAG - Just a div! */}
+          <div className="space-y-5">
             {/* Role Selection */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-3">
@@ -286,54 +279,46 @@ function Signup() {
               </div>
             </div>
 
-            {/* Name - ADD name ATTRIBUTE */}
+            {/* Name */}
             <div>
-              <label htmlFor="signup-name" className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 Full Name *
               </label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
-                  id="signup-name"
-                  name="name"
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   placeholder="John Doe"
                   disabled={loading || successMessage}
-                  autoComplete="name"
-                  required
                 />
               </div>
             </div>
 
-            {/* Email - ADD name ATTRIBUTE */}
+            {/* Email */}
             <div>
-              <label htmlFor="signup-email" className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 Email Address *
               </label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
-                  id="signup-email"
-                  name="email"
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   placeholder="john@example.com"
                   disabled={loading || successMessage}
-                  autoComplete="email"
-                  required
                 />
               </div>
             </div>
 
-            {/* Phone Number - ADD name ATTRIBUTE */}
+            {/* Phone */}
             <div>
-              <label htmlFor="signup-phone" className="block text-sm font-medium text-gray-700 mb-2">
-                Mobile Number * <span className="text-xs text-gray-500">(10 digits only, no country code)</span>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Mobile Number * <span className="text-xs text-gray-500">(10 digits, no country code)</span>
               </label>
               <div className="relative">
                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -341,8 +326,6 @@ function Signup() {
                   +91
                 </div>
                 <input
-                  id="signup-phone"
-                  name="phone"
                   type="tel"
                   value={formData.phone}
                   onChange={handlePhoneChange}
@@ -352,8 +335,6 @@ function Signup() {
                   placeholder="9876543210"
                   maxLength="10"
                   disabled={loading || successMessage}
-                  autoComplete="tel"
-                  required
                 />
               </div>
               {phoneError && (
@@ -373,22 +354,19 @@ function Signup() {
               </p>
             </div>
 
-            {/* Venue Selection - ADD name ATTRIBUTE */}
+            {/* Venue Selection */}
             {formData.role === 'venue' && (
               <div>
-                <label htmlFor="signup-venue" className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Select Venue *
                 </label>
                 <div className="relative">
                   <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <select
-                    id="signup-venue"
-                    name="venue_id"
                     value={formData.venue_id}
                     onChange={(e) => setFormData({ ...formData, venue_id: e.target.value })}
                     className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent appearance-none bg-white"
                     disabled={loading || successMessage}
-                    required
                   >
                     <option value="">Choose a venue...</option>
                     {venues.map((venue) => (
@@ -401,55 +379,47 @@ function Signup() {
               </div>
             )}
 
-            {/* Password - ADD name ATTRIBUTE */}
+            {/* Password */}
             <div>
-              <label htmlFor="signup-password" className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 Password *
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
-                  id="signup-password"
-                  name="password"
                   type="password"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   placeholder="••••••••"
-                  minLength="6"
                   disabled={loading || successMessage}
-                  autoComplete="new-password"
-                  required
                 />
               </div>
               <p className="mt-1 text-xs text-gray-500">Minimum 6 characters</p>
             </div>
 
-            {/* Confirm Password - ADD name ATTRIBUTE */}
+            {/* Confirm Password */}
             <div>
-              <label htmlFor="signup-confirm-password" className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 Confirm Password *
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
-                  id="signup-confirm-password"
-                  name="confirmPassword"
                   type="password"
                   value={formData.confirmPassword}
                   onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                   className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   placeholder="••••••••"
                   disabled={loading || successMessage}
-                  autoComplete="new-password"
-                  required
                 />
               </div>
             </div>
 
-            {/* Submit Button - type="submit" is CRITICAL */}
+            {/* Submit Button - type="button" + onClick */}
             <button
-              type="submit"
+              type="button"
+              onClick={handleButtonClick}
               disabled={loading || successMessage || !!phoneError || (formData.phone && formData.phone.length !== 10)}
               className="w-full py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl font-semibold hover:from-purple-700 hover:to-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
             >
@@ -459,12 +429,12 @@ function Signup() {
                   Creating Account...
                 </span>
               ) : successMessage ? (
-                'Account Created ✓'
+                '✅ Account Created'
               ) : (
                 'Create Account'
               )}
             </button>
-          </form>
+          </div>
 
           {/* Login Link */}
           {!successMessage && (
