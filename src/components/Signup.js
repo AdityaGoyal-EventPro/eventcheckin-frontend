@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { UserPlus, Mail, Lock, User, Phone, MapPin, AlertCircle, CheckCircle } from 'lucide-react';
 
 function Signup() {
-  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -18,10 +17,24 @@ function Signup() {
   const [loading, setLoading] = useState(false);
   const [phoneError, setPhoneError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [countdown, setCountdown] = useState(5);
 
   useEffect(() => {
     loadVenues();
   }, []);
+
+  // Countdown effect
+  useEffect(() => {
+    if (successMessage && countdown > 0) {
+      const timer = setTimeout(() => {
+        setCountdown(countdown - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    } else if (successMessage && countdown === 0) {
+      console.log('⏰ Countdown finished, redirecting...');
+      window.location.href = '/login';
+    }
+  }, [successMessage, countdown]);
 
   const loadVenues = async () => {
     try {
@@ -134,75 +147,29 @@ function Signup() {
         const user = data.user;
         console.log('✅ Account created successfully');
         
-        // Check if account needs approval
-        if (user.status === 'pending') {
-          console.log('⏳ Account pending approval');
-          
-          setSuccessMessage(
-            data.message || 
-            'Account created successfully! Your account is pending admin approval. Check your email for details.'
-          );
-          
-          // Clear form
-          setFormData({
-            name: '',
-            email: '',
-            phone: '',
-            password: '',
-            confirmPassword: '',
-            role: 'host',
-            venue_id: ''
-          });
-          
-          console.log('🚀 Redirecting to login in 5 seconds...');
-          
-          // Redirect to login after 5 seconds with dual approach
-          setTimeout(() => {
-            console.log('Attempting navigation...');
-            
-            try {
-              // Try React Router navigate first
-              navigate('/login', { 
-                replace: true,
-                state: { 
-                  message: 'Account pending approval. You will receive an email once approved.' 
-                } 
-              });
-              
-              // Fallback: force redirect after 500ms if still on signup page
-              setTimeout(() => {
-                if (window.location.pathname === '/signup') {
-                  console.log('Navigate failed, using window.location');
-                  window.location.href = '/login';
-                }
-              }, 500);
-            } catch (navError) {
-              console.error('Navigate error:', navError);
-              // Direct fallback
-              window.location.href = '/login';
-            }
-          }, 5000);
-        } else {
-          // Account is active immediately (shouldn't happen now but just in case)
-          console.log('✅ Account active, redirecting to login');
-          
-          try {
-            navigate('/login', { 
-              replace: true,
-              state: { 
-                message: 'Account created successfully! Please login.' 
-              } 
-            });
-            
-            setTimeout(() => {
-              if (window.location.pathname === '/signup') {
-                window.location.href = '/login';
-              }
-            }, 500);
-          } catch (navError) {
-            window.location.href = '/login';
-          }
-        }
+        // Show success message
+        setSuccessMessage(
+          data.message || 
+          'Account created successfully! Your account is pending admin approval. Check your email for details.'
+        );
+        
+        // Clear form
+        setFormData({
+          name: '',
+          email: '',
+          phone: '',
+          password: '',
+          confirmPassword: '',
+          role: 'host',
+          venue_id: ''
+        });
+        
+        setLoading(false);
+        
+        // Start countdown (useEffect will handle redirect)
+        setCountdown(5);
+        
+        console.log('⏰ Starting 5-second countdown...');
       } else {
         console.log('❌ Signup failed:', data.error);
         setError(data.error || 'Failed to create account');
@@ -229,12 +196,21 @@ function Signup() {
 
         {/* Success Message */}
         {successMessage && (
-          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl flex items-start gap-3 animate-slideDown">
-            <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <p className="text-sm text-green-800 font-medium">Success!</p>
-              <p className="text-sm text-green-700 mt-1">{successMessage}</p>
-              <p className="text-xs text-green-600 mt-2">Redirecting to login page in 5 seconds...</p>
+          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl">
+            <div className="flex items-start gap-3">
+              <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm text-green-800 font-medium">Success!</p>
+                <p className="text-sm text-green-700 mt-1">{successMessage}</p>
+                <div className="mt-3 flex items-center gap-2">
+                  <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
+                    <span className="text-white font-bold text-sm">{countdown}</span>
+                  </div>
+                  <p className="text-xs text-green-600">
+                    Redirecting to login page...
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -264,7 +240,7 @@ function Signup() {
                       ? 'border-purple-500 bg-purple-50'
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
-                  disabled={loading}
+                  disabled={loading || successMessage}
                 >
                   <div className="text-center">
                     <div className="text-2xl mb-1">🎉</div>
@@ -281,7 +257,7 @@ function Signup() {
                       ? 'border-blue-500 bg-blue-50'
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
-                  disabled={loading}
+                  disabled={loading || successMessage}
                 >
                   <div className="text-center">
                     <div className="text-2xl mb-1">🏢</div>
@@ -305,7 +281,7 @@ function Signup() {
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   placeholder="John Doe"
-                  disabled={loading}
+                  disabled={loading || successMessage}
                   required
                 />
               </div>
@@ -324,7 +300,7 @@ function Signup() {
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   placeholder="john@example.com"
-                  disabled={loading}
+                  disabled={loading || successMessage}
                   required
                 />
               </div>
@@ -349,7 +325,7 @@ function Signup() {
                   }`}
                   placeholder="9876543210"
                   maxLength="10"
-                  disabled={loading}
+                  disabled={loading || successMessage}
                   required
                 />
               </div>
@@ -382,7 +358,7 @@ function Signup() {
                     value={formData.venue_id}
                     onChange={(e) => setFormData({ ...formData, venue_id: e.target.value })}
                     className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent appearance-none bg-white"
-                    disabled={loading}
+                    disabled={loading || successMessage}
                     required
                   >
                     <option value="">Choose a venue...</option>
@@ -410,7 +386,7 @@ function Signup() {
                   className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   placeholder="••••••••"
                   minLength="6"
-                  disabled={loading}
+                  disabled={loading || successMessage}
                   required
                 />
               </div>
@@ -430,7 +406,7 @@ function Signup() {
                   onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                   className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   placeholder="••••••••"
-                  disabled={loading}
+                  disabled={loading || successMessage}
                   required
                 />
               </div>
@@ -439,7 +415,7 @@ function Signup() {
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={loading || !!phoneError || (formData.phone && formData.phone.length !== 10)}
+              disabled={loading || successMessage || !!phoneError || (formData.phone && formData.phone.length !== 10)}
               className="w-full py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl font-semibold hover:from-purple-700 hover:to-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
             >
               {loading ? (
@@ -447,6 +423,8 @@ function Signup() {
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                   Creating Account...
                 </span>
+              ) : successMessage ? (
+                'Account Created ✓'
               ) : (
                 'Create Account'
               )}
@@ -454,22 +432,26 @@ function Signup() {
           </form>
 
           {/* Login Link */}
-          <div className="mt-6 text-center">
-            <p className="text-gray-600">
-              Already have an account?{' '}
-              <Link to="/login" className="text-purple-600 hover:text-purple-700 font-semibold">
-                Login here
-              </Link>
-            </p>
-          </div>
+          {!successMessage && (
+            <div className="mt-6 text-center">
+              <p className="text-gray-600">
+                Already have an account?{' '}
+                <Link to="/login" className="text-purple-600 hover:text-purple-700 font-semibold">
+                  Login here
+                </Link>
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Approval Notice */}
-        <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
-          <p className="text-sm text-blue-800 text-center">
-            ℹ️ All {formData.role === 'host' ? 'Event Host' : 'Venue'} accounts require admin approval before you can login.
-          </p>
-        </div>
+        {!successMessage && (
+          <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+            <p className="text-sm text-blue-800 text-center">
+              ℹ️ All {formData.role === 'host' ? 'Event Host' : 'Venue'} accounts require admin approval before you can login.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
