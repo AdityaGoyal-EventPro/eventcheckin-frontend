@@ -27,6 +27,7 @@ function Signup() {
   useEffect(() => {
     if (successMessage && countdown > 0) {
       const timer = setTimeout(() => {
+        console.log('Countdown:', countdown);
         setCountdown(countdown - 1);
       }, 1000);
       return () => clearTimeout(timer);
@@ -82,49 +83,66 @@ function Signup() {
     validatePhone(limited);
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
+    // CRITICAL: Prevent default form submission
     e.preventDefault();
     e.stopPropagation();
     
-    console.log('🔍 Signup form submitted');
+    console.log('🔍 Form submit triggered');
+    console.log('📝 Form data:', formData);
+    
+    // Run async submission
+    submitForm();
+  };
+
+  const submitForm = async () => {
+    console.log('🚀 Starting form submission...');
     
     setError('');
     setSuccessMessage('');
 
     // Validation
     if (!formData.name || !formData.email || !formData.phone || !formData.password) {
+      console.log('❌ Validation: Empty fields');
       setError('Please fill in all required fields');
       return;
     }
 
     if (!validatePhone(formData.phone)) {
+      console.log('❌ Validation: Invalid phone');
       return;
     }
 
     if (formData.phone.length !== 10) {
+      console.log('❌ Validation: Phone not 10 digits');
       setError('Mobile number must be exactly 10 digits');
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
+      console.log('❌ Validation: Passwords do not match');
       setError('Passwords do not match');
       return;
     }
 
     if (formData.password.length < 6) {
+      console.log('❌ Validation: Password too short');
       setError('Password must be at least 6 characters');
       return;
     }
 
     if (formData.role === 'venue' && !formData.venue_id) {
+      console.log('❌ Validation: No venue selected');
       setError('Please select a venue');
       return;
     }
 
+    console.log('✅ Validation passed');
     setLoading(true);
-    console.log('⏳ Creating account...');
 
     try {
+      console.log('📡 Sending request to:', `${process.env.REACT_APP_API_URL}/api/auth/signup`);
+      
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/auth/signup`, {
         method: 'POST',
         headers: {
@@ -140,12 +158,12 @@ function Signup() {
         })
       });
 
+      console.log('📥 Response status:', response.status);
       const data = await response.json();
-      console.log('📦 Signup response:', data);
+      console.log('📦 Response data:', data);
 
       if (response.ok && data.success) {
-        const user = data.user;
-        console.log('✅ Account created successfully');
+        console.log('✅ Account created successfully!');
         
         // Show success message
         setSuccessMessage(
@@ -166,17 +184,16 @@ function Signup() {
         
         setLoading(false);
         
-        // Start countdown (useEffect will handle redirect)
+        // Start countdown
         setCountdown(5);
-        
-        console.log('⏰ Starting 5-second countdown...');
+        console.log('⏰ Starting countdown from 5...');
       } else {
         console.log('❌ Signup failed:', data.error);
         setError(data.error || 'Failed to create account');
         setLoading(false);
       }
     } catch (err) {
-      console.error('💥 Signup error:', err);
+      console.error('💥 Error:', err);
       setError('Failed to connect to server. Please try again.');
       setLoading(false);
     }
@@ -225,6 +242,7 @@ function Signup() {
 
         {/* Form */}
         <div className="bg-white rounded-2xl shadow-xl p-8">
+          {/* CRITICAL: onSubmit on form, not button */}
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Role Selection */}
             <div>
@@ -268,47 +286,53 @@ function Signup() {
               </div>
             </div>
 
-            {/* Name */}
+            {/* Name - ADD name ATTRIBUTE */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="signup-name" className="block text-sm font-medium text-gray-700 mb-2">
                 Full Name *
               </label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
+                  id="signup-name"
+                  name="name"
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   placeholder="John Doe"
                   disabled={loading || successMessage}
+                  autoComplete="name"
                   required
                 />
               </div>
             </div>
 
-            {/* Email */}
+            {/* Email - ADD name ATTRIBUTE */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="signup-email" className="block text-sm font-medium text-gray-700 mb-2">
                 Email Address *
               </label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
+                  id="signup-email"
+                  name="email"
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   placeholder="john@example.com"
                   disabled={loading || successMessage}
+                  autoComplete="email"
                   required
                 />
               </div>
             </div>
 
-            {/* Phone Number */}
+            {/* Phone Number - ADD name ATTRIBUTE */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="signup-phone" className="block text-sm font-medium text-gray-700 mb-2">
                 Mobile Number * <span className="text-xs text-gray-500">(10 digits only, no country code)</span>
               </label>
               <div className="relative">
@@ -317,6 +341,8 @@ function Signup() {
                   +91
                 </div>
                 <input
+                  id="signup-phone"
+                  name="phone"
                   type="tel"
                   value={formData.phone}
                   onChange={handlePhoneChange}
@@ -326,6 +352,7 @@ function Signup() {
                   placeholder="9876543210"
                   maxLength="10"
                   disabled={loading || successMessage}
+                  autoComplete="tel"
                   required
                 />
               </div>
@@ -346,15 +373,17 @@ function Signup() {
               </p>
             </div>
 
-            {/* Venue Selection (for venue users) */}
+            {/* Venue Selection - ADD name ATTRIBUTE */}
             {formData.role === 'venue' && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="signup-venue" className="block text-sm font-medium text-gray-700 mb-2">
                   Select Venue *
                 </label>
                 <div className="relative">
                   <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <select
+                    id="signup-venue"
+                    name="venue_id"
                     value={formData.venue_id}
                     onChange={(e) => setFormData({ ...formData, venue_id: e.target.value })}
                     className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent appearance-none bg-white"
@@ -372,14 +401,16 @@ function Signup() {
               </div>
             )}
 
-            {/* Password */}
+            {/* Password - ADD name ATTRIBUTE */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="signup-password" className="block text-sm font-medium text-gray-700 mb-2">
                 Password *
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
+                  id="signup-password"
+                  name="password"
                   type="password"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
@@ -387,32 +418,36 @@ function Signup() {
                   placeholder="••••••••"
                   minLength="6"
                   disabled={loading || successMessage}
+                  autoComplete="new-password"
                   required
                 />
               </div>
               <p className="mt-1 text-xs text-gray-500">Minimum 6 characters</p>
             </div>
 
-            {/* Confirm Password */}
+            {/* Confirm Password - ADD name ATTRIBUTE */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="signup-confirm-password" className="block text-sm font-medium text-gray-700 mb-2">
                 Confirm Password *
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
+                  id="signup-confirm-password"
+                  name="confirmPassword"
                   type="password"
                   value={formData.confirmPassword}
                   onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                   className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   placeholder="••••••••"
                   disabled={loading || successMessage}
+                  autoComplete="new-password"
                   required
                 />
               </div>
             </div>
 
-            {/* Submit Button */}
+            {/* Submit Button - type="submit" is CRITICAL */}
             <button
               type="submit"
               disabled={loading || successMessage || !!phoneError || (formData.phone && formData.phone.length !== 10)}
