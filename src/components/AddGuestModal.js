@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { X, Phone, AlertCircle, CheckCircle } from 'lucide-react';
 import { guestsAPI } from '../api';
 
-// Inline PhoneInput component (no separate file needed!)
+// Inline PhoneInput component with FIXED padding
 function PhoneInput({ value = '', onChange, required = false, disabled = false }) {
   const [error, setError] = useState('');
   const [touched, setTouched] = useState(false);
@@ -62,23 +62,26 @@ function PhoneInput({ value = '', onChange, required = false, disabled = false }
     <div>
       <label className="block text-sm font-medium text-gray-700 mb-1">
         Mobile Number {required && <span className="text-red-500">*</span>}
-        <span className="text-xs text-gray-500 font-normal ml-2">
-          (10 digits, no country code)
-        </span>
+        {!required && <span className="text-gray-500 text-xs ml-1">(Optional)</span>}
       </label>
+      <p className="text-xs text-gray-500 mb-2">
+        Enter 10 digits only, no country code
+      </p>
       
       <div className="relative">
-        <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-2 pointer-events-none">
+        {/* +91 Prefix - Fixed position */}
+        <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-2 pointer-events-none z-10">
           <Phone className="w-4 h-4 text-gray-400" />
-          <span className="text-gray-600 font-medium text-sm">+91</span>
+          <span className="text-gray-600 font-medium">+91</span>
         </div>
         
+        {/* Input with proper padding */}
         <input
           type="tel"
           value={value}
           onChange={handleChange}
           onBlur={handleBlur}
-          className={`w-full pl-20 pr-10 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all ${
+          className={`w-full pl-24 pr-12 py-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-base ${
             error && showValidation
               ? 'border-red-300 bg-red-50'
               : isValid && showValidation
@@ -91,6 +94,7 @@ function PhoneInput({ value = '', onChange, required = false, disabled = false }
           required={required}
         />
         
+        {/* Validation Icon */}
         {showValidation && (
           <div className="absolute right-3 top-1/2 -translate-y-1/2">
             {error ? (
@@ -102,22 +106,25 @@ function PhoneInput({ value = '', onChange, required = false, disabled = false }
         )}
       </div>
       
+      {/* Error Message */}
       {error && showValidation && (
-        <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
-          <AlertCircle className="w-3 h-3" />
+        <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+          <AlertCircle className="w-4 h-4" />
           {error}
         </p>
       )}
       
+      {/* Success Message */}
       {isValid && showValidation && (
-        <p className="mt-1 text-xs text-green-600 flex items-center gap-1">
-          <CheckCircle className="w-3 h-3" />
+        <p className="mt-2 text-sm text-green-600 flex items-center gap-1">
+          <CheckCircle className="w-4 h-4" />
           Valid mobile number
         </p>
       )}
       
-      <p className="mt-1 text-xs text-gray-500">
-        📱 10 digits starting with 6, 7, 8, or 9
+      {/* Helper Text */}
+      <p className="mt-2 text-xs text-gray-500">
+        📱 Must start with 6, 7, 8, or 9
       </p>
     </div>
   );
@@ -188,7 +195,7 @@ function AddGuestModal({ eventId, onClose, onGuestAdded }) {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-6 space-y-5">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Guest Name *
@@ -197,7 +204,7 @@ function AddGuestModal({ eventId, onClose, onGuestAdded }) {
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({...formData, name: e.target.value})}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
               placeholder="John Doe"
               required
             />
@@ -211,12 +218,12 @@ function AddGuestModal({ eventId, onClose, onGuestAdded }) {
               type="email"
               value={formData.email}
               onChange={(e) => setFormData({...formData, email: e.target.value})}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
               placeholder="john@example.com"
             />
           </div>
 
-          {/* Phone Input with Validation */}
+          {/* Phone Input with FIXED UI */}
           <PhoneInput
             value={formData.phone}
             onChange={(phone) => setFormData({...formData, phone})}
@@ -230,7 +237,7 @@ function AddGuestModal({ eventId, onClose, onGuestAdded }) {
             <select
               value={formData.category}
               onChange={(e) => setFormData({...formData, category: e.target.value})}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
             >
               <option value="General">General</option>
               <option value="VIP">VIP</option>
@@ -250,7 +257,7 @@ function AddGuestModal({ eventId, onClose, onGuestAdded }) {
               max="10"
               value={formData.plus_ones}
               onChange={(e) => setFormData({...formData, plus_ones: parseInt(e.target.value) || 0})}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
             />
           </div>
 
@@ -258,14 +265,14 @@ function AddGuestModal({ eventId, onClose, onGuestAdded }) {
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
+              className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition disabled:opacity-50"
+              className="flex-1 px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition disabled:opacity-50 font-medium"
             >
               {submitting ? 'Adding...' : 'Add Guest'}
             </button>
