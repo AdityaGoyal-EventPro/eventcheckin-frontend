@@ -155,6 +155,21 @@ function QRScanner({ user }) {
       const guest = response.data.guests.find(g => g.id === guestId);
 
       if (guest) {
+        // For global scan, we need to load the actual event data (including wristband_color)
+        if (isGlobalScan && qrEventId) {
+          console.log('Loading event data for wristband color:', qrEventId);
+          try {
+            const eventResponse = await eventsAPI.getById(qrEventId);
+            const actualEvent = eventResponse.data.event;
+            console.log('Event data loaded:', actualEvent);
+            // Temporarily update the event state with the actual event
+            setEvent(actualEvent);
+          } catch (error) {
+            console.error('Failed to load event data:', error);
+            // Continue with guest check-in even if event data fails
+          }
+        }
+        
         setCheckedInGuest(guest);
         setShowSuccess(true);
         // Scanner will resume when success dialog closes
