@@ -67,21 +67,30 @@ function VenueDashboard({ user, onLogout }) {
 
   const handleWristbandAssignment = async (eventId, colorName) => {
     try {
+      console.log('Assigning wristband:', eventId, colorName);
+      
       const response = await fetch(`https://eventcheckin-backend-production.up.railway.app/api/events/${eventId}/wristband`, {
-        method: 'PUT',
+        method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ wristband_color: colorName })
+        body: JSON.stringify({ wristband_color: colorName.toLowerCase() })
       });
       
-      if (!response.ok) throw new Error('Failed to update wristband');
+      const data = await response.json();
+      
+      if (!response.ok) {
+        console.error('Wristband update failed:', data);
+        throw new Error(data.error || 'Failed to update wristband');
+      }
+      
+      console.log('Wristband updated successfully:', data);
       
       // Reload events to show updated wristband color
-      loadEvents();
+      await loadEvents();
     } catch (error) {
       console.error('Error assigning wristband:', error);
-      alert('Failed to assign wristband color');
+      alert(`Failed to assign wristband color: ${error.message}`);
     }
   };
 
