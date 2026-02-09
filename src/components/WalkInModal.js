@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { X, Phone, AlertCircle, CheckCircle } from 'lucide-react';
 import { guestsAPI } from '../api';
 
-// Inline PhoneInput component with FIXED padding
+// Phone Input - SEPARATE +91 BOX (like Signup page!)
 function PhoneInput({ value = '', onChange, required = false, disabled = false }) {
   const [error, setError] = useState('');
   const [touched, setTouched] = useState(false);
@@ -60,66 +60,70 @@ function PhoneInput({ value = '', onChange, required = false, disabled = false }
 
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">
+      <label className="block text-sm font-medium text-gray-700 mb-2">
         Mobile Number {required && <span className="text-red-500">*</span>}
         {!required && <span className="text-gray-500 text-xs ml-1">(Optional)</span>}
       </label>
-      <p className="text-xs text-gray-500 mb-2">
+      
+      <p className="text-xs text-gray-500 mb-3">
         Enter 10 digits only, no country code
       </p>
       
-      <div className="relative">
-        {/* +91 Prefix - Fixed position */}
-        <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-2 pointer-events-none z-10">
-          <Phone className="w-4 h-4 text-gray-400" />
-          <span className="text-gray-600 font-medium">+91</span>
+      {/* SEPARATE BOX DESIGN - NO OVERLAP! */}
+      <div className="flex gap-2">
+        {/* +91 Box */}
+        <div className="flex items-center gap-2 px-3 py-3 border border-gray-300 rounded-lg bg-gray-50">
+          <Phone className="w-4 h-4 text-gray-500" />
+          <span className="text-gray-700 font-medium">+91</span>
         </div>
         
-        {/* Input with proper padding */}
-        <input
-          type="tel"
-          value={value}
-          onChange={handleChange}
-          onBlur={handleBlur}
-          className={`w-full pl-28 pr-12 py-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-base ${
-            error && showValidation
-              ? 'border-red-300 bg-red-50'
-              : isValid && showValidation
-              ? 'border-green-300 bg-green-50'
-              : 'border-gray-300'
-          }`}
-          placeholder="9876543210"
-          maxLength="10"
-          disabled={disabled}
-          required={required}
-        />
-        
-        {/* Validation Icon */}
-        {showValidation && (
-          <div className="absolute right-3 top-1/2 -translate-y-1/2">
-            {error ? (
-              <AlertCircle className="w-5 h-5 text-red-500" />
-            ) : isValid ? (
-              <CheckCircle className="w-5 h-5 text-green-500" />
-            ) : null}
-          </div>
-        )}
+        {/* Phone Number Input */}
+        <div className="flex-1 relative">
+          <input
+            type="tel"
+            value={value}
+            onChange={handleChange}
+            onBlur={handleBlur}
+            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-base ${
+              error && showValidation
+                ? 'border-red-300 bg-red-50'
+                : isValid && showValidation
+                ? 'border-green-300 bg-green-50'
+                : 'border-gray-300'
+            }`}
+            placeholder="9876543210"
+            maxLength="10"
+            disabled={disabled}
+            required={required}
+          />
+          
+          {/* Validation Icon */}
+          {showValidation && (
+            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+              {error ? (
+                <AlertCircle className="w-5 h-5 text-red-500" />
+              ) : isValid ? (
+                <CheckCircle className="w-5 h-5 text-green-500" />
+              ) : null}
+            </div>
+          )}
+        </div>
       </div>
       
       {/* Error Message */}
       {error && showValidation && (
-        <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
-          <AlertCircle className="w-4 h-4" />
-          {error}
-        </p>
+        <div className="mt-2 flex items-start gap-2 text-sm text-red-600">
+          <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+          <span>{error}</span>
+        </div>
       )}
       
       {/* Success Message */}
       {isValid && showValidation && (
-        <p className="mt-2 text-sm text-green-600 flex items-center gap-1">
-          <CheckCircle className="w-4 h-4" />
-          Valid mobile number
-        </p>
+        <div className="mt-2 flex items-start gap-2 text-sm text-green-600">
+          <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+          <span>Valid mobile number</span>
+        </div>
       )}
       
       {/* Helper Text */}
@@ -174,8 +178,8 @@ function WalkInModal({ eventId, onClose, onWalkInAdded }) {
 
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Guest Name *
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Guest Name <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
@@ -188,7 +192,7 @@ function WalkInModal({ eventId, onClose, onWalkInAdded }) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Email <span className="text-gray-500 text-xs">(Optional)</span>
             </label>
             <input
@@ -200,7 +204,7 @@ function WalkInModal({ eventId, onClose, onWalkInAdded }) {
             />
           </div>
 
-          {/* Phone Input - NO overlap */}
+          {/* Phone Input - SEPARATE BOX DESIGN */}
           <PhoneInput
             value={formData.phone}
             onChange={(phone) => setFormData({...formData, phone})}
