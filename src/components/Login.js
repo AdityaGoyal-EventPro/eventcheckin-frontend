@@ -1,269 +1,325 @@
-import React, { useState, useEffect } from 'react';
-import { authAPI, venuesAPI } from '../api';
-import { AlertCircle, Sparkles } from 'lucide-react';
+import React, { useState } from 'react';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { LogIn, Mail, Lock, CheckCircle, AlertCircle, Users, BarChart3, QrCode, Zap, Shield, TrendingUp } from 'lucide-react';
+import { authAPI } from '../api';
 
-function Login({ onLogin }) {
-  const [isLogin, setIsLogin] = useState(true);
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    name: '',
-    role: 'host',
-    venue_id: ''
-  });
-  const [venues, setVenues] = useState([]);
+function Login() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [formData, setFormData] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [pendingApproval, setPendingApproval] = useState(false);
 
-  // Load venues when switching to signup mode and selecting venue role
-  useEffect(() => {
-    if (!isLogin && formData.role === 'venue') {
-      loadVenues();
-    }
-  }, [isLogin, formData.role]);
-
-  const loadVenues = async () => {
-    try {
-      const response = await venuesAPI.getAll();
-      setVenues(response.data.venues || []);
-    } catch (error) {
-      console.error('Error loading venues:', error);
-    }
-  };
+  // Get message from navigation state (e.g., after signup)
+  const navigationMessage = location.state?.message;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setPendingApproval(false);
 
-    // Validation for venue users
-    if (!isLogin && formData.role === 'venue' && !formData.venue_id) {
-      setError('Please select a venue');
+    if (!formData.email || !formData.password) {
+      setError('Please enter both email and password');
       return;
     }
 
     setLoading(true);
 
     try {
-      const response = isLogin
-        ? await authAPI.login(formData.email, formData.password)
-        : await authAPI.signup(formData);
-
-      if (response.data.user) {
-        console.log('Login successful, user:', response.data.user);
-        onLogin(response.data.user);
+      const response = await authAPI.login(formData.email, formData.password);
+      
+      if (response.data.success) {
+        const user = response.data.user;
+        localStorage.setItem('user', JSON.stringify(user));
+        localStorage.setItem('session', JSON.stringify(response.data.session));
+        
+        // Redirect based on role
+        if (user.role === 'admin') {
+          navigate('/admin');
+        } else if (user.role === 'venue') {
+          navigate('/venue-dashboard');
+        } else {
+          navigate('/dashboard');
+        }
       }
     } catch (err) {
-      console.error('Auth error:', err);
-      setError(err.response?.data?.error || 'Authentication failed');
+      const errorData = err.response?.data;
+      
+      // Check if account is pending approval
+      if (errorData?.status === 'pending') {
+        setPendingApproval(true);
+        setError(errorData.message || 'Your account is pending admin approval');
+      } else if (errorData?.status === 'rejected') {
+        setError(errorData.message || 'Your account was not approved. Please contact support.');
+      } else {
+        setError(errorData?.error || 'Invalid email or password');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Logo/Brand */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-3 mb-3">
-            <div className="w-14 h-14 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
-              <Sparkles className="w-8 h-8 text-white" />
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50">
+      <div className="grid lg:grid-cols-2 min-h-screen">
+        {/* Left Side - Login Form */}
+        <div className="flex items-center justify-center p-8">
+          <div className="max-w-md w-full">
+            {/* Header */}
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-purple-600 to-blue-600 rounded-2xl mb-4 shadow-lg">
+                <LogIn className="w-8 h-8 text-white" />
+              </div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome Back</h1>
+              <p className="text-gray-600">Sign in to your Event Check-In Pro account</p>
             </div>
-            <div className="text-left">
-              <h1 className="text-3xl font-bold">
-                <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                  Check-In
-                </span>
-                <span className="text-gray-900"> Pro</span>
-              </h1>
-              <p className="text-sm text-gray-600">Effortless Event Management</p>
-            </div>
-          </div>
-        </div>
 
-        {/* Card */}
-        <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
-          {/* Header */}
-          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-8 text-center">
-            <h2 className="text-2xl font-bold text-white mb-2">
-              {isLogin ? 'Welcome Back' : 'Get Started'}
-            </h2>
-            <p className="text-indigo-100 text-sm">
-              {isLogin ? 'Sign in to your account' : 'Create your account'}
-            </p>
-          </div>
+            {/* Navigation Message */}
+            {navigationMessage && (
+              <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl flex items-start gap-3 animate-slideDown">
+                <CheckCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-blue-800">{navigationMessage}</p>
+              </div>
+            )}
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="p-8 space-y-5">
+            {/* Pending Approval Message */}
+            {pendingApproval && (
+              <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-yellow-900">Account Pending Approval</p>
+                    <p className="text-sm text-yellow-800 mt-1">
+                      Your account is awaiting admin approval. You'll receive an email notification once approved.
+                    </p>
+                    <p className="text-xs text-yellow-700 mt-2">
+                      ⏱️ This usually takes 24-48 hours
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Error Message */}
-            {error && (
-              <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
+            {error && !pendingApproval && (
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
                 <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
                 <p className="text-sm text-red-800">{error}</p>
               </div>
             )}
 
-            {/* Name Field (Signup only) */}
-            {!isLogin && (
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Full Name *
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  required
-                  className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-gray-900 placeholder-gray-400 text-base"
-                  placeholder="John Doe"
-                />
-              </div>
-            )}
-
-            {/* Email Field */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Email Address *
-              </label>
-              <input
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                required
-                className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-gray-900 placeholder-gray-400 text-base"
-                placeholder="you@example.com"
-                autoComplete="email"
-              />
-            </div>
-
-            {/* Password Field */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Password *
-              </label>
-              <input
-                type="password"
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                required
-                className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-gray-900 placeholder-gray-400 text-base"
-                placeholder="••••••••"
-                autoComplete={isLogin ? "current-password" : "new-password"}
-              />
-            </div>
-
-            {/* Role Selection (Signup only) */}
-            {!isLogin && (
-              <>
+            {/* Login Form */}
+            <div className="bg-white rounded-2xl shadow-xl p-8">
+              <form onSubmit={handleSubmit} className="space-y-5">
+                {/* Email */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    I am a *
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Email Address
                   </label>
-                  <select
-                    value={formData.role}
-                    onChange={(e) => setFormData({ ...formData, role: e.target.value, venue_id: '' })}
-                    className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-gray-900 text-base appearance-none cursor-pointer bg-white"
-                    style={{
-                      backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
-                      backgroundPosition: 'right 0.5rem center',
-                      backgroundRepeat: 'no-repeat',
-                      backgroundSize: '1.5em 1.5em',
-                      paddingRight: '2.5rem'
-                    }}
-                  >
-                    <option value="host">Event Host</option>
-                    <option value="venue">Venue Manager</option>
-                  </select>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      placeholder="you@example.com"
+                      required
+                    />
+                  </div>
                 </div>
 
-                {/* Venue Selection (Venue role only) */}
-                {formData.role === 'venue' && (
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Select Your Venue *
-                    </label>
-                    {venues.length === 0 ? (
-                      <div className="text-sm text-gray-600 p-4 bg-gray-50 rounded-xl">
-                        Loading venues...
-                      </div>
-                    ) : (
-                      <select
-                        value={formData.venue_id}
-                        onChange={(e) => setFormData({ ...formData, venue_id: e.target.value })}
-                        required
-                        className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-gray-900 text-base appearance-none cursor-pointer bg-white"
-                        style={{
-                          backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
-                          backgroundPosition: 'right 0.5rem center',
-                          backgroundRepeat: 'no-repeat',
-                          backgroundSize: '1.5em 1.5em',
-                          paddingRight: '2.5rem'
-                        }}
-                      >
-                        <option value="">-- Select a venue --</option>
-                        {venues.map(venue => (
-                          <option key={venue.id} value={venue.id}>
-                            {venue.name} - {venue.city}
-                          </option>
-                        ))}
-                      </select>
-                    )}
+                {/* Password */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Password
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      type="password"
+                      value={formData.password}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      placeholder="••••••••"
+                      required
+                    />
                   </div>
-                )}
-              </>
-            )}
+                </div>
 
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold py-4 rounded-xl hover:from-indigo-700 hover:to-purple-700 focus:ring-4 focus:ring-indigo-200 transition shadow-lg disabled:opacity-50 disabled:cursor-not-allowed text-base"
-            >
-              {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Please wait...
-                </span>
-              ) : (
-                isLogin ? 'Sign In' : 'Create Account'
-              )}
-            </button>
-          </form>
+                {/* Submit Button */}
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl font-semibold hover:from-purple-700 hover:to-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
+                >
+                  {loading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Signing in...
+                    </span>
+                  ) : (
+                    'Sign In'
+                  )}
+                </button>
+              </form>
 
-          {/* Footer */}
-          <div className="px-8 pb-8">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-200"></div>
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-4 bg-white text-gray-600 font-medium">
-                  {isLogin ? "Don't have an account?" : 'Already have an account?'}
-                </span>
+              {/* Signup Link */}
+              <div className="mt-6 text-center">
+                <p className="text-gray-600">
+                  Don't have an account?{' '}
+                  <Link to="/signup" className="text-purple-600 hover:text-purple-700 font-semibold">
+                    Sign up here
+                  </Link>
+                </p>
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={() => {
-                setIsLogin(!isLogin);
-                setError('');
-                setFormData({ email: '', password: '', name: '', role: 'host', venue_id: '' });
-              }}
-              className="w-full mt-4 bg-white border-2 border-gray-300 text-gray-700 font-semibold py-3.5 rounded-xl hover:bg-gray-50 hover:border-indigo-500 transition text-base"
-            >
-              {isLogin ? 'Create Account' : 'Sign In'}
-            </button>
+            {/* Trust Indicators */}
+            <div className="mt-6 flex items-center justify-center gap-6 text-sm text-gray-500">
+              <div className="flex items-center gap-1">
+                <Shield className="w-4 h-4" />
+                <span>Secure</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Zap className="w-4 h-4" />
+                <span>Fast</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <CheckCircle className="w-4 h-4" />
+                <span>Trusted</span>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Footer Text */}
-        <p className="text-center text-xs text-gray-500 mt-6">
-          By continuing, you agree to our Terms of Service and Privacy Policy
-        </p>
+        {/* Right Side - Benefits & Features */}
+        <div className="hidden lg:flex items-center justify-center bg-gradient-to-br from-purple-600 to-blue-600 p-12">
+          <div className="max-w-lg text-white">
+            {/* Hero Section */}
+            <div className="mb-12">
+              <h2 className="text-4xl font-bold mb-4">Transform Your Event Management</h2>
+              <p className="text-purple-100 text-lg">
+                The modern solution for seamless guest list management and check-ins
+              </p>
+            </div>
+
+            {/* Benefits for Hosts */}
+            <div className="mb-8">
+              <h3 className="text-2xl font-bold mb-6 flex items-center gap-2">
+                <Users className="w-6 h-6" />
+                For Event Hosts
+              </h3>
+              <div className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <QrCode className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold mb-1">Digital QR Code Invitations</h4>
+                    <p className="text-purple-100 text-sm">Send personalized QR codes via email & SMS instantly</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <BarChart3 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold mb-1">Real-Time Analytics</h4>
+                    <p className="text-purple-100 text-sm">Track RSVPs, check-ins, and guest attendance live</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Users className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold mb-1">Guest List Management</h4>
+                    <p className="text-purple-100 text-sm">Import, manage, and categorize unlimited guests</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Zap className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold mb-1">Lightning-Fast Check-In</h4>
+                    <p className="text-purple-100 text-sm">Scan QR codes for instant guest verification</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Benefits for Venues */}
+            <div className="mb-8">
+              <h3 className="text-2xl font-bold mb-6 flex items-center gap-2">
+                <TrendingUp className="w-6 h-6" />
+                For Venues
+              </h3>
+              <div className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <BarChart3 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold mb-1">Multi-Event Dashboard</h4>
+                    <p className="text-purple-100 text-sm">View all events at your venue in one place</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Shield className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold mb-1">Enhanced Security</h4>
+                    <p className="text-purple-100 text-sm">Controlled access with verified QR codes</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <TrendingUp className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold mb-1">Capacity Management</h4>
+                    <p className="text-purple-100 text-sm">Monitor attendance and venue capacity in real-time</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Users className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold mb-1">Host Collaboration</h4>
+                    <p className="text-purple-100 text-sm">Seamless coordination with event organizers</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Stats */}
+            <div className="grid grid-cols-3 gap-4 pt-8 border-t border-white/20">
+              <div className="text-center">
+                <div className="text-3xl font-bold">10K+</div>
+                <div className="text-purple-100 text-sm mt-1">Events</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold">500K+</div>
+                <div className="text-purple-100 text-sm mt-1">Guests</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold">99.9%</div>
+                <div className="text-purple-100 text-sm mt-1">Uptime</div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
