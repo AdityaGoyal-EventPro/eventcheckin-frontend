@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './components/Login';
+import Signup from './components/Signup';
 import Dashboard from './components/Dashboard';
 import EventDetails from './components/EventDetails';
 import VenueDashboard from './components/VenueDashboard';
@@ -59,6 +60,14 @@ function App() {
           path="/login" 
           element={
             user ? <Navigate to="/" replace /> : <Login onLogin={handleLogin} />
+          } 
+        />
+
+        {/* Signup Route - ADDED THIS! */}
+        <Route 
+          path="/signup" 
+          element={
+            user ? <Navigate to="/" replace /> : <Signup />
           } 
         />
 
