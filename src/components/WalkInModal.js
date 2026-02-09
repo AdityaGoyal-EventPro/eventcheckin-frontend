@@ -153,7 +153,15 @@ function WalkInModal({ eventId, onClose, onWalkInAdded }) {
     setSubmitting(true);
 
     try {
-      const response = await guestsAPI.addWalkIn(eventId, formData);
+      // Walk-in guests use same create API with is_walk_in flag
+      const guestData = {
+        ...formData,
+        event_id: eventId,
+        is_walk_in: true,
+        checked_in: true  // Walk-ins are automatically checked in
+      };
+      
+      const response = await guestsAPI.create(guestData);
       const newGuest = response.data.guest;
       onWalkInAdded(newGuest);
     } catch (error) {
