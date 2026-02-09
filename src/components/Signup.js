@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { UserPlus, Mail, Lock, User, Phone, MapPin, AlertCircle, CheckCircle } from 'lucide-react';
 
 function Signup() {
@@ -23,16 +22,13 @@ function Signup() {
     loadVenues();
   }, []);
 
-  // Countdown and redirect
   useEffect(() => {
     if (redirectSeconds > 0) {
-      console.log('⏰ Countdown:', redirectSeconds);
       const timer = setTimeout(() => {
         setRedirectSeconds(redirectSeconds - 1);
       }, 1000);
       return () => clearTimeout(timer);
     } else if (redirectSeconds === 0 && successMessage) {
-      console.log('🚀 Redirecting now...');
       window.location.href = '/login';
     }
   }, [redirectSeconds, successMessage]);
@@ -83,22 +79,22 @@ function Signup() {
     validatePhone(limited);
   };
 
-  // CRITICAL: This handles the button click
-  const handleButtonClick = () => {
-    console.log('🖱️ Button clicked - preventing default');
+  const handleSubmit = async () => {
+    console.log('🚀🚀🚀 BUTTON CLICKED - FUNCTION CALLED 🚀🚀🚀');
+    console.log('Form data:', formData);
     
     setError('');
     setSuccessMessage('');
 
     // Validation
     if (!formData.name || !formData.email || !formData.phone || !formData.password) {
-      console.log('❌ Empty fields');
+      console.log('❌ Validation failed: empty fields');
       setError('Please fill in all required fields');
       return;
     }
 
     if (!validatePhone(formData.phone)) {
-      console.log('❌ Invalid phone');
+      console.log('❌ Phone validation failed');
       return;
     }
 
@@ -109,7 +105,7 @@ function Signup() {
     }
 
     if (formData.password !== formData.confirmPassword) {
-      console.log('❌ Passwords do not match');
+      console.log('❌ Passwords dont match');
       setError('Passwords do not match');
       return;
     }
@@ -126,17 +122,12 @@ function Signup() {
       return;
     }
 
-    console.log('✅ All validations passed - submitting...');
-    
-    // Submit
-    submitForm();
-  };
-
-  const submitForm = async () => {
+    console.log('✅✅✅ ALL VALIDATION PASSED ✅✅✅');
     setLoading(true);
-    console.log('📡 Calling API...');
 
     try {
+      console.log('📡 Sending to:', `${process.env.REACT_APP_API_URL}/api/auth/signup`);
+      
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/auth/signup`, {
         method: 'POST',
         headers: {
@@ -154,17 +145,15 @@ function Signup() {
 
       console.log('📥 Response status:', response.status);
       const data = await response.json();
-      console.log('📦 Data:', data);
+      console.log('📦 Response data:', data);
 
       if (response.ok && data.success) {
-        console.log('✅ Success!');
+        console.log('✅✅✅ SUCCESS! ACCOUNT CREATED! ✅✅✅');
         
         setSuccessMessage(
-          data.message || 
-          'Account created! Pending admin approval. Check your email.'
+          data.message || 'Account created! Check your email for approval status.'
         );
         
-        // Clear form
         setFormData({
           name: '',
           email: '',
@@ -176,18 +165,16 @@ function Signup() {
         });
         
         setLoading(false);
-        
-        // Start countdown
         setRedirectSeconds(5);
         console.log('⏰ Starting 5 second countdown...');
       } else {
-        console.log('❌ Failed:', data.error);
+        console.log('❌ API returned error:', data.error);
         setError(data.error || 'Failed to create account');
         setLoading(false);
       }
     } catch (err) {
-      console.error('💥 Error:', err);
-      setError('Failed to connect. Please try again.');
+      console.error('💥💥💥 FETCH ERROR:', err);
+      setError('Connection failed. Please try again.');
       setLoading(false);
     }
   };
@@ -195,7 +182,6 @@ function Signup() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50 flex items-center justify-center p-4">
       <div className="max-w-md w-full">
-        {/* Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-purple-600 to-blue-600 rounded-2xl mb-4 shadow-lg">
             <UserPlus className="w-8 h-8 text-white" />
@@ -204,11 +190,10 @@ function Signup() {
           <p className="text-gray-600">Join Event Check-In Pro today</p>
         </div>
 
-        {/* Success Message */}
         {successMessage && (
           <div className="mb-6 p-4 bg-green-50 border-2 border-green-200 rounded-xl">
             <div className="flex items-start gap-3">
-              <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" />
+              <CheckCircle className="w-6 h-6 text-green-600" />
               <div className="flex-1">
                 <p className="text-sm text-green-800 font-bold">✅ Success!</p>
                 <p className="text-sm text-green-700 mt-1">{successMessage}</p>
@@ -216,247 +201,181 @@ function Signup() {
                   <div className="w-10 h-10 bg-green-600 rounded-full flex items-center justify-center animate-pulse">
                     <span className="text-white font-bold text-lg">{redirectSeconds}</span>
                   </div>
-                  <p className="text-sm text-green-600 font-medium">
-                    Redirecting to login...
-                  </p>
+                  <p className="text-sm text-green-600 font-medium">Redirecting...</p>
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* Error Message */}
         {error && (
           <div className="mb-6 p-4 bg-red-50 border-2 border-red-200 rounded-xl flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <AlertCircle className="w-5 h-5 text-red-600" />
             <p className="text-sm text-red-800 font-medium">{error}</p>
           </div>
         )}
 
-        {/* Form */}
         <div className="bg-white rounded-2xl shadow-xl p-8">
-          {/* NO FORM TAG - Just a div! */}
           <div className="space-y-5">
-            {/* Role Selection */}
+            {/* Role */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                I am a:
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-3">I am a:</label>
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
-                  onClick={() => setFormData({ ...formData, role: 'host', venue_id: '' })}
-                  className={`p-4 rounded-xl border-2 transition-all ${
-                    formData.role === 'host'
-                      ? 'border-purple-500 bg-purple-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
+                  onClick={() => {
+                    console.log('Role button clicked: host');
+                    setFormData({ ...formData, role: 'host', venue_id: '' });
+                  }}
+                  className={`p-4 rounded-xl border-2 ${formData.role === 'host' ? 'border-purple-500 bg-purple-50' : 'border-gray-200'}`}
                   disabled={loading || successMessage}
                 >
-                  <div className="text-center">
-                    <div className="text-2xl mb-1">🎉</div>
-                    <div className="font-semibold text-gray-900">Event Host</div>
-                    <div className="text-xs text-gray-500 mt-1">Organize events</div>
-                  </div>
+                  <div className="text-2xl mb-1">🎉</div>
+                  <div className="font-semibold">Host</div>
                 </button>
-
                 <button
                   type="button"
-                  onClick={() => setFormData({ ...formData, role: 'venue' })}
-                  className={`p-4 rounded-xl border-2 transition-all ${
-                    formData.role === 'venue'
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
+                  onClick={() => {
+                    console.log('Role button clicked: venue');
+                    setFormData({ ...formData, role: 'venue' });
+                  }}
+                  className={`p-4 rounded-xl border-2 ${formData.role === 'venue' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}
                   disabled={loading || successMessage}
                 >
-                  <div className="text-center">
-                    <div className="text-2xl mb-1">🏢</div>
-                    <div className="font-semibold text-gray-900">Venue</div>
-                    <div className="text-xs text-gray-500 mt-1">Manage venue</div>
-                  </div>
+                  <div className="text-2xl mb-1">🏢</div>
+                  <div className="font-semibold">Venue</div>
                 </button>
               </div>
             </div>
 
             {/* Name */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Full Name *
-              </label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  placeholder="John Doe"
-                  disabled={loading || successMessage}
-                />
-              </div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Name *</label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500"
+                placeholder="John Doe"
+                disabled={loading || successMessage}
+              />
             </div>
 
             {/* Email */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Email Address *
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  placeholder="john@example.com"
-                  disabled={loading || successMessage}
-                />
-              </div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
+              <input
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500"
+                placeholder="john@example.com"
+                disabled={loading || successMessage}
+              />
             </div>
 
             {/* Phone */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Mobile Number * <span className="text-xs text-gray-500">(10 digits, no country code)</span>
+                Phone * (10 digits)
               </label>
-              <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <div className="absolute left-11 top-1/2 -translate-y-1/2 text-gray-500 font-medium">
+              <div className="flex gap-2">
+                <div className="px-3 py-3 bg-gray-100 border border-gray-300 rounded-xl font-medium">
                   +91
                 </div>
                 <input
                   type="tel"
                   value={formData.phone}
                   onChange={handlePhoneChange}
-                  className={`w-full pl-20 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                    phoneError ? 'border-red-300 bg-red-50' : 'border-gray-300'
-                  }`}
+                  className={`flex-1 px-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 ${phoneError ? 'border-red-300' : 'border-gray-300'}`}
                   placeholder="9876543210"
                   maxLength="10"
                   disabled={loading || successMessage}
                 />
               </div>
-              {phoneError && (
-                <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-                  <AlertCircle className="w-4 h-4" />
-                  {phoneError}
-                </p>
-              )}
+              {phoneError && <p className="mt-1 text-sm text-red-600">{phoneError}</p>}
               {formData.phone && !phoneError && formData.phone.length === 10 && (
-                <p className="mt-1 text-sm text-green-600 flex items-center gap-1">
-                  <CheckCircle className="w-4 h-4" />
-                  Valid mobile number
-                </p>
+                <p className="mt-1 text-sm text-green-600">✅ Valid</p>
               )}
-              <p className="mt-1 text-xs text-gray-500">
-                📱 Enter 10 digits starting with 6, 7, 8, or 9
-              </p>
             </div>
 
-            {/* Venue Selection */}
+            {/* Venue */}
             {formData.role === 'venue' && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Select Venue *
-                </label>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <select
-                    value={formData.venue_id}
-                    onChange={(e) => setFormData({ ...formData, venue_id: e.target.value })}
-                    className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent appearance-none bg-white"
-                    disabled={loading || successMessage}
-                  >
-                    <option value="">Choose a venue...</option>
-                    {venues.map((venue) => (
-                      <option key={venue.id} value={venue.id}>
-                        {venue.name} - {venue.city}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Venue *</label>
+                <select
+                  value={formData.venue_id}
+                  onChange={(e) => setFormData({ ...formData, venue_id: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500"
+                  disabled={loading || successMessage}
+                >
+                  <option value="">Choose...</option>
+                  {venues.map((v) => (
+                    <option key={v.id} value={v.id}>{v.name}</option>
+                  ))}
+                </select>
               </div>
             )}
 
             {/* Password */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Password *
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  placeholder="••••••••"
-                  disabled={loading || successMessage}
-                />
-              </div>
-              <p className="mt-1 text-xs text-gray-500">Minimum 6 characters</p>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Password *</label>
+              <input
+                type="password"
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500"
+                placeholder="••••••••"
+                disabled={loading || successMessage}
+              />
             </div>
 
-            {/* Confirm Password */}
+            {/* Confirm */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Confirm Password *
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="password"
-                  value={formData.confirmPassword}
-                  onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                  className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  placeholder="••••••••"
-                  disabled={loading || successMessage}
-                />
-              </div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Confirm *</label>
+              <input
+                type="password"
+                value={formData.confirmPassword}
+                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500"
+                placeholder="••••••••"
+                disabled={loading || successMessage}
+              />
             </div>
 
-            {/* Submit Button - type="button" + onClick */}
+            {/* BUTTON WITH INLINE ONCLICK FOR TESTING */}
             <button
               type="button"
-              onClick={handleButtonClick}
-              disabled={loading || successMessage || !!phoneError || (formData.phone && formData.phone.length !== 10)}
-              className="w-full py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl font-semibold hover:from-purple-700 hover:to-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
+              onClick={() => {
+                console.log('🔴🔴🔴 BUTTON CLICK EVENT FIRED 🔴🔴🔴');
+                handleSubmit();
+              }}
+              onMouseEnter={() => console.log('🖱️ Mouse over button')}
+              onMouseLeave={() => console.log('🖱️ Mouse left button')}
+              disabled={loading || successMessage}
+              style={{ position: 'relative', zIndex: 9999 }}
+              className="w-full py-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white text-lg rounded-xl font-bold hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 shadow-lg cursor-pointer"
             >
-              {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  Creating Account...
-                </span>
-              ) : successMessage ? (
-                '✅ Account Created'
-              ) : (
-                'Create Account'
-              )}
+              {loading ? 'Creating...' : successMessage ? '✅ Created' : '🚀 CREATE ACCOUNT 🚀'}
+            </button>
+
+            {/* Test button */}
+            <button
+              type="button"
+              onClick={() => console.log('✅ TEST BUTTON WORKS!')}
+              className="w-full py-2 bg-gray-200 text-gray-800 rounded-lg text-sm"
+            >
+              🧪 Click to Test Console (should show message)
             </button>
           </div>
 
-          {/* Login Link */}
-          {!successMessage && (
-            <div className="mt-6 text-center">
-              <p className="text-gray-600">
-                Already have an account?{' '}
-                <Link to="/login" className="text-purple-600 hover:text-purple-700 font-semibold">
-                  Login here
-                </Link>
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* Approval Notice */}
-        {!successMessage && (
-          <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
-            <p className="text-sm text-blue-800 text-center">
-              ℹ️ All {formData.role === 'host' ? 'Event Host' : 'Venue'} accounts require admin approval before you can login.
+          <div className="mt-6 text-center">
+            <p className="text-gray-600">
+              Have account?{' '}
+              <a href="/login" className="text-purple-600 font-semibold">Login</a>
             </p>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
