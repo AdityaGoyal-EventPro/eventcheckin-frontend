@@ -34,10 +34,8 @@ function Signup() {
   };
 
   const validatePhone = (phone) => {
-    // Remove all non-digit characters
     const cleaned = phone.replace(/\D/g, '');
     
-    // Check if it's exactly 10 digits
     if (cleaned.length === 0) {
       setPhoneError('');
       return true;
@@ -53,7 +51,6 @@ function Signup() {
       return false;
     }
     
-    // Check if starts with valid Indian mobile prefix (6-9)
     if (!['6', '7', '8', '9'].includes(cleaned[0])) {
       setPhoneError('Mobile number should start with 6, 7, 8, or 9');
       return false;
@@ -65,10 +62,7 @@ function Signup() {
 
   const handlePhoneChange = (e) => {
     const input = e.target.value;
-    // Remove all non-digit characters
     const cleaned = input.replace(/\D/g, '');
-    
-    // Limit to 10 digits
     const limited = cleaned.slice(0, 10);
     
     setFormData({ ...formData, phone: limited });
@@ -79,6 +73,8 @@ function Signup() {
     e.preventDefault();
     e.stopPropagation();
     
+    console.log('🔍 Signup form submitted');
+    
     setError('');
     setSuccessMessage('');
 
@@ -88,7 +84,6 @@ function Signup() {
       return;
     }
 
-    // Phone validation
     if (!validatePhone(formData.phone)) {
       return;
     }
@@ -114,6 +109,7 @@ function Signup() {
     }
 
     setLoading(true);
+    console.log('⏳ Creating account...');
 
     try {
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/auth/signup`, {
@@ -132,12 +128,16 @@ function Signup() {
       });
 
       const data = await response.json();
+      console.log('📦 Signup response:', data);
 
       if (response.ok && data.success) {
         const user = data.user;
+        console.log('✅ Account created successfully');
         
         // Check if account needs approval
         if (user.status === 'pending') {
+          console.log('⏳ Account pending approval');
+          
           setSuccessMessage(
             data.message || 
             'Account created successfully! Your account is pending admin approval. Check your email for details.'
@@ -154,29 +154,63 @@ function Signup() {
             venue_id: ''
           });
           
-          // Redirect to login after 5 seconds
+          console.log('🚀 Redirecting to login in 5 seconds...');
+          
+          // Redirect to login after 5 seconds with dual approach
           setTimeout(() => {
-            navigate('/login', { 
-              state: { 
-                message: 'Account pending approval. You will receive an email once approved.' 
-              } 
-            });
+            console.log('Attempting navigation...');
+            
+            try {
+              // Try React Router navigate first
+              navigate('/login', { 
+                replace: true,
+                state: { 
+                  message: 'Account pending approval. You will receive an email once approved.' 
+                } 
+              });
+              
+              // Fallback: force redirect after 500ms if still on signup page
+              setTimeout(() => {
+                if (window.location.pathname === '/signup') {
+                  console.log('Navigate failed, using window.location');
+                  window.location.href = '/login';
+                }
+              }, 500);
+            } catch (navError) {
+              console.error('Navigate error:', navError);
+              // Direct fallback
+              window.location.href = '/login';
+            }
           }, 5000);
         } else {
           // Account is active immediately (shouldn't happen now but just in case)
-          navigate('/login', { 
-            state: { 
-              message: 'Account created successfully! Please login.' 
-            } 
-          });
+          console.log('✅ Account active, redirecting to login');
+          
+          try {
+            navigate('/login', { 
+              replace: true,
+              state: { 
+                message: 'Account created successfully! Please login.' 
+              } 
+            });
+            
+            setTimeout(() => {
+              if (window.location.pathname === '/signup') {
+                window.location.href = '/login';
+              }
+            }, 500);
+          } catch (navError) {
+            window.location.href = '/login';
+          }
         }
       } else {
+        console.log('❌ Signup failed:', data.error);
         setError(data.error || 'Failed to create account');
+        setLoading(false);
       }
     } catch (err) {
-      console.error('Signup error:', err);
+      console.error('💥 Signup error:', err);
       setError('Failed to connect to server. Please try again.');
-    } finally {
       setLoading(false);
     }
   };
@@ -200,7 +234,7 @@ function Signup() {
             <div className="flex-1">
               <p className="text-sm text-green-800 font-medium">Success!</p>
               <p className="text-sm text-green-700 mt-1">{successMessage}</p>
-              <p className="text-xs text-green-600 mt-2">Redirecting to login page...</p>
+              <p className="text-xs text-green-600 mt-2">Redirecting to login page in 5 seconds...</p>
             </div>
           </div>
         )}
