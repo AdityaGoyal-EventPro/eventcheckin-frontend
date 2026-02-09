@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './components/Login';
-import Signup from './components/Signup';
 import Dashboard from './components/Dashboard';
 import EventDetails from './components/EventDetails';
 import VenueDashboard from './components/VenueDashboard';
 import QRScanner from './components/QRScanner';
 import AdminDashboard from './components/AdminDashboard';
 import PendingApproval from './components/PendingApproval';
+import ResetPassword from './components/ResetPassword';  // ✅ ADDED
 
 function App() {
   const [user, setUser] = useState(null);
@@ -63,12 +63,10 @@ function App() {
           } 
         />
 
-        {/* Signup Route - ADDED THIS! */}
+        {/* ✅ ADDED: Reset Password Route (Public - No auth required) */}
         <Route 
-          path="/signup" 
-          element={
-            user ? <Navigate to="/" replace /> : <Signup />
-          } 
+          path="/reset-password" 
+          element={<ResetPassword />} 
         />
 
         {/* Dashboard Route - Role-based redirect */}
