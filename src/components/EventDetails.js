@@ -505,6 +505,7 @@ function EventDetails({ user }) {
       {showSuccessDialog && checkedInGuest && (
         <CheckInSuccessDialog
           guest={checkedInGuest}
+          event={event}
           onClose={() => {
             setShowSuccessDialog(false);
             setCheckedInGuest(null);
