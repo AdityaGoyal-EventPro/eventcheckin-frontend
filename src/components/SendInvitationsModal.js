@@ -21,7 +21,9 @@ function SendInvitationsModal({ eventId, eventName, guestCount, onClose, onSucce
       const response = await invitationsAPI.sendBulk(eventId, channels);
       setResult(response.data.results);
       setTimeout(() => {
-        onSuccess();
+        if (onSuccess && typeof onSuccess === 'function') {
+          onSuccess();
+        }
         onClose();
       }, 2000);
     } catch (err) {
