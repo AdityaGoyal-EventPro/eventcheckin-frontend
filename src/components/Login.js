@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { LogIn, Mail, Lock, CheckCircle, AlertCircle, Users, BarChart3, QrCode, Zap, Shield, TrendingUp } from 'lucide-react';
 
 function Login() {
@@ -56,22 +56,16 @@ function Login() {
         }
         
         // Use window.location as fallback if navigate doesn't work
-        console.log('Navigating to:', redirectPath);
-        
-        // Try navigate first
         try {
           navigate(redirectPath, { replace: true });
           
           // Fallback: force redirect after 500ms if still on login page
           setTimeout(() => {
             if (window.location.pathname === '/login') {
-              console.log('Navigate failed, using window.location');
               window.location.href = redirectPath;
             }
           }, 500);
         } catch (navError) {
-          console.error('Navigate error:', navError);
-          // Direct fallback
           window.location.href = redirectPath;
         }
       } else {
@@ -151,12 +145,14 @@ function Login() {
                     Email Address
                   </label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                      <Mail className="w-5 h-5 text-gray-400" />
+                    </div>
                     <input
                       type="email"
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                       placeholder="you@example.com"
                       disabled={loading}
                       required
@@ -170,12 +166,14 @@ function Login() {
                     Password
                   </label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                      <Lock className="w-5 h-5 text-gray-400" />
+                    </div>
                     <input
                       type="password"
                       value={formData.password}
                       onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                      className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                       placeholder="••••••••"
                       disabled={loading}
                       required
@@ -204,9 +202,9 @@ function Login() {
               <div className="mt-6 text-center">
                 <p className="text-gray-600">
                   Don't have an account?{' '}
-                  <Link to="/signup" className="text-purple-600 hover:text-purple-700 font-semibold">
+                  <a href="/signup" className="text-purple-600 hover:text-purple-700 font-semibold">
                     Sign up here
-                  </Link>
+                  </a>
                 </p>
               </div>
             </div>
