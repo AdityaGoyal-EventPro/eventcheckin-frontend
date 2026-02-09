@@ -1,7 +1,129 @@
-import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, Phone, AlertCircle, CheckCircle } from 'lucide-react';
+import { guestsAPI } from '../api';
 
-function EditGuestModal({ guest, onClose, onSave }) {
+// Inline PhoneInput component (no separate file needed!)
+function PhoneInput({ value = '', onChange, required = false, disabled = false }) {
+  const [error, setError] = useState('');
+  const [touched, setTouched] = useState(false);
+
+  const validatePhone = (phone) => {
+    const cleaned = phone.replace(/\D/g, '');
+    
+    if (cleaned.length === 0) {
+      if (required) {
+        setError('Mobile number is required');
+        return false;
+      }
+      setError('');
+      return true;
+    }
+    
+    if (cleaned.length < 10) {
+      setError('Please enter 10 digits');
+      return false;
+    }
+    
+    if (cleaned.length > 10) {
+      setError('Maximum 10 digits allowed');
+      return false;
+    }
+    
+    if (!['6', '7', '8', '9'].includes(cleaned[0])) {
+      setError('Mobile number should start with 6, 7, 8, or 9');
+      return false;
+    }
+    
+    setError('');
+    return true;
+  };
+
+  const handleChange = (e) => {
+    const input = e.target.value;
+    const cleaned = input.replace(/\D/g, '');
+    const limited = cleaned.slice(0, 10);
+    
+    onChange(limited);
+    
+    if (touched) {
+      validatePhone(limited);
+    }
+  };
+
+  const handleBlur = () => {
+    setTouched(true);
+    validatePhone(value);
+  };
+
+  const isValid = value.length === 10 && !error;
+  const showValidation = touched && value.length > 0;
+
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">
+        Mobile Number {required && <span className="text-red-500">*</span>}
+        <span className="text-xs text-gray-500 font-normal ml-2">
+          (10 digits, no country code)
+        </span>
+      </label>
+      
+      <div className="relative">
+        <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-2 pointer-events-none">
+          <Phone className="w-4 h-4 text-gray-400" />
+          <span className="text-gray-600 font-medium text-sm">+91</span>
+        </div>
+        
+        <input
+          type="tel"
+          value={value}
+          onChange={handleChange}
+          onBlur={handleBlur}
+          className={`w-full pl-20 pr-10 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all ${
+            error && showValidation
+              ? 'border-red-300 bg-red-50'
+              : isValid && showValidation
+              ? 'border-green-300 bg-green-50'
+              : 'border-gray-300'
+          }`}
+          placeholder="9876543210"
+          maxLength="10"
+          disabled={disabled}
+          required={required}
+        />
+        
+        {showValidation && (
+          <div className="absolute right-3 top-1/2 -translate-y-1/2">
+            {error ? (
+              <AlertCircle className="w-5 h-5 text-red-500" />
+            ) : isValid ? (
+              <CheckCircle className="w-5 h-5 text-green-500" />
+            ) : null}
+          </div>
+        )}
+      </div>
+      
+      {error && showValidation && (
+        <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+          <AlertCircle className="w-3 h-3" />
+          {error}
+        </p>
+      )}
+      
+      {isValid && showValidation && (
+        <p className="mt-1 text-xs text-green-600 flex items-center gap-1">
+          <CheckCircle className="w-3 h-3" />
+          Valid mobile number
+        </p>
+      )}
+      
+      <p className="mt-1 text-xs text-gray-500">
+        📱 10 digits starting with 6, 7, 8, or 9
+      </p>
+    </div>
+  );
+}
+
+function AddGuestModal({ eventId, onClose, onGuestAdded }) {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -9,59 +131,75 @@ function EditGuestModal({ guest, onClose, onSave }) {
     category: 'General',
     plus_ones: 0
   });
-  const [saving, setSaving] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
-  useEffect(() => {
-    if (guest) {
-      setFormData({
-        name: guest.name || '',
-        email: guest.email || '',
-        phone: guest.phone || '',
-        category: guest.category || 'General',
-        plus_ones: guest.plus_ones || 0
-      });
-    }
-  }, [guest]);
+  const validatePhone = (phone) => {
+    const cleaned = phone.replace(/\D/g, '');
+    return (
+      cleaned.length === 10 &&
+      ['6', '7', '8', '9'].includes(cleaned[0])
+    );
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setSaving(true);
+    setError('');
+    
+    if (!formData.name.trim()) {
+      setError('Guest name is required');
+      return;
+    }
+
+    if (!formData.phone || !validatePhone(formData.phone)) {
+      setError('Please enter a valid 10-digit mobile number');
+      return;
+    }
+
+    setSubmitting(true);
+
     try {
-      await onSave(guest.id, formData);
-      onClose();
+      await guestsAPI.create(eventId, formData);
+      onGuestAdded();
     } catch (error) {
-      alert('Failed to update guest');
-    } finally {
-      setSaving(false);
+      console.error('Error adding guest:', error);
+      setError('Failed to add guest. Please try again.');
+      setSubmitting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-xl font-bold text-gray-900">Edit Guest</h2>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+          <h2 className="text-2xl font-bold">Add Guest</h2>
           <button
             onClick={onClose}
-            className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center transition"
+            className="p-2 hover:bg-gray-100 rounded-lg transition"
           >
-            <X className="w-5 h-5 text-gray-600" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Form */}
+        {error && (
+          <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-red-800">{error}</p>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Name *
+              Guest Name *
             </label>
             <input
               type="text"
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              onChange={(e) => setFormData({...formData, name: e.target.value})}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              placeholder="John Doe"
               required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
             />
           </div>
 
@@ -72,22 +210,18 @@ function EditGuestModal({ guest, onClose, onSave }) {
             <input
               type="email"
               value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              onChange={(e) => setFormData({...formData, email: e.target.value})}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              placeholder="john@example.com"
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Phone
-            </label>
-            <input
-              type="tel"
-              value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-            />
-          </div>
+          {/* Phone Input with Validation */}
+          <PhoneInput
+            value={formData.phone}
+            onChange={(phone) => setFormData({...formData, phone})}
+            required={true}
+          />
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -95,13 +229,14 @@ function EditGuestModal({ guest, onClose, onSave }) {
             </label>
             <select
               value={formData.category}
-              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              onChange={(e) => setFormData({...formData, category: e.target.value})}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             >
               <option value="General">General</option>
               <option value="VIP">VIP</option>
+              <option value="VVIP">VVIP</option>
               <option value="Staff">Staff</option>
-              <option value="Media">Media</option>
+              <option value="Press">Press</option>
             </select>
           </div>
 
@@ -112,27 +247,27 @@ function EditGuestModal({ guest, onClose, onSave }) {
             <input
               type="number"
               min="0"
+              max="10"
               value={formData.plus_ones}
-              onChange={(e) => setFormData({ ...formData, plus_ones: parseInt(e.target.value) || 0 })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              onChange={(e) => setFormData({...formData, plus_ones: parseInt(e.target.value) || 0})}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             />
           </div>
 
-          {/* Actions */}
           <div className="flex gap-3 pt-4">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition"
+              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
             >
               Cancel
             </button>
             <button
               type="submit"
-              disabled={saving}
-              className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition disabled:opacity-50"
+              disabled={submitting}
+              className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition disabled:opacity-50"
             >
-              {saving ? 'Saving...' : 'Save Changes'}
+              {submitting ? 'Adding...' : 'Add Guest'}
             </button>
           </div>
         </form>
@@ -141,4 +276,4 @@ function EditGuestModal({ guest, onClose, onSave }) {
   );
 }
 
-export default EditGuestModal;
+export default AddGuestModal;
