@@ -112,6 +112,7 @@ function EventDetails({ user }) {
     e.preventDefault();
     const formData = new FormData(e.target);
     const guestData = {
+      event_id: eventId,  // ← ADDED: Backend needs event_id
       name: formData.get('name'),
       email: formData.get('email'),
       phone: formData.get('phone'),
@@ -120,12 +121,13 @@ function EventDetails({ user }) {
     };
 
     try {
-      await guestsAPI.create(eventId, guestData);
+      await guestsAPI.create(guestData);  // ← FIXED: Don't pass eventId separately
       setShowAddGuest(false);
       loadEventData();
       e.target.reset();
     } catch (error) {
-      alert('Failed to add guest');
+      console.error('Add guest error:', error);
+      alert('Failed to add guest: ' + (error.response?.data?.error || error.message));
     }
   };
 
