@@ -41,13 +41,27 @@ function ImportCSVModal({ eventId, onClose, onImportComplete }) {
   };
 
   const downloadTemplate = () => {
-    const template = 'name,email,phone,category,plus_ones\nJohn Doe,john@example.com,+1234567890,VIP,2\nJane Smith,jane@example.com,+0987654321,General,0';
-    const blob = new Blob([template], { type: 'text/csv' });
+    // Create sample CSV with realistic data
+    const template = `name,email,phone,category,plus_ones
+John Doe,john.doe@example.com,+91-9876543210,VIP,2
+Jane Smith,jane.smith@example.com,+91-9876543211,General,0
+Raj Patel,raj.patel@example.com,+91-9876543212,VIP,1
+Priya Sharma,priya.sharma@example.com,+91-9876543213,General,0
+Mike Johnson,mike.johnson@example.com,+91-9876543214,VVIP,3
+Ananya Kumar,ananya.kumar@example.com,+91-9876543215,General,0
+David Lee,david.lee@example.com,+91-9876543216,VIP,1
+Sarah Williams,sarah.williams@example.com,+91-9876543217,Staff,0
+Amit Singh,amit.singh@example.com,+91-9876543218,Press,0
+Emily Brown,emily.brown@example.com,+91-9876543219,General,2`;
+    
+    const blob = new Blob([template], { type: 'text/csv;charset=utf-8;' });
     const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'guest_list_template.csv';
-    a.click();
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'guest_list_sample.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
   };
 
@@ -65,18 +79,37 @@ function ImportCSVModal({ eventId, onClose, onImportComplete }) {
         </div>
 
         <div className="p-6 space-y-4">
-          {/* Download Template */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p className="text-sm text-blue-900 mb-2">
-              Don't have a CSV file? Download our template:
-            </p>
-            <button
-              onClick={downloadTemplate}
-              className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium"
-            >
-              <Download className="w-4 h-4" />
-              Download Template
-            </button>
+          {/* Download Sample File - Prominent Section */}
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl p-5">
+            <div className="flex items-start gap-3 mb-3">
+              <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                <Download className="w-5 h-5 text-white" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-blue-900 mb-1">Need a template?</h3>
+                <p className="text-sm text-blue-800 mb-3">
+                  Download our sample CSV file with example guest data to see the correct format.
+                </p>
+                <button
+                  onClick={downloadTemplate}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition shadow-sm"
+                >
+                  <Download className="w-4 h-4" />
+                  Download Sample CSV
+                </button>
+              </div>
+            </div>
+            
+            {/* Sample Preview */}
+            <div className="mt-4 bg-white/70 rounded-lg p-3 border border-blue-200">
+              <p className="text-xs font-semibold text-blue-900 mb-2">Sample includes:</p>
+              <ul className="text-xs text-blue-800 space-y-1">
+                <li>✓ 10 example guests with realistic data</li>
+                <li>✓ Different categories (VIP, VVIP, General, Staff, Press)</li>
+                <li>✓ Various plus_ones counts</li>
+                <li>✓ Proper formatting for names, emails, and phone numbers</li>
+              </ul>
+            </div>
           </div>
 
           {/* File Upload */}
