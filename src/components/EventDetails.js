@@ -7,7 +7,7 @@ import SendInvitationsModal from './SendInvitationsModal';
 import WalkInModal from './WalkInModal';
 import EditGuestModal from './EditGuestModal';
 import CheckInSuccessDialog from './CheckInSuccessDialog';
-import ImportCSVModal from './ImportCSVModal';
+import CSVImport from './CSVImport';
 
 function EventDetails({ user }) {
   const { id: eventId } = useParams();
@@ -409,7 +409,7 @@ function EventDetails({ user }) {
 
       {/* Import CSV Modal */}
       {showImportCSV && (
-        <ImportCSVModal
+        <CSVImport
           eventId={eventId}
           onClose={() => setShowImportCSV(false)}
           onImportComplete={() => {
