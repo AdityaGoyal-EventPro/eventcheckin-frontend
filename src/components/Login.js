@@ -10,25 +10,35 @@ function Login() {
   const [loading, setLoading] = useState(false);
   const [pendingApproval, setPendingApproval] = useState(false);
 
-  // Get message from navigation state (e.g., after signup)
   const navigationMessage = location.state?.message;
 
   const handleSubmit = async (e) => {
+    console.log('🔍 Login form submitted');
     e.preventDefault();
     e.stopPropagation();
+    
+    console.log('📝 Form data:', { email: formData.email, password: '***' });
     
     setError('');
     setPendingApproval(false);
 
     if (!formData.email || !formData.password) {
+      console.log('❌ Validation failed: empty fields');
       setError('Please enter both email and password');
       return;
     }
 
     setLoading(true);
+    console.log('⏳ Loading state set to true');
+
+    const apiUrl = process.env.REACT_APP_API_URL;
+    console.log('🌐 API URL:', apiUrl);
+    console.log('🔗 Full endpoint:', `${apiUrl}/api/auth/login`);
 
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/auth/login`, {
+      console.log('📡 Sending login request...');
+      
+      const response = await fetch(`${apiUrl}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -39,36 +49,53 @@ function Login() {
         })
       });
 
+      console.log('📥 Response status:', response.status);
+      console.log('📥 Response ok:', response.ok);
+
       const data = await response.json();
+      console.log('📦 Response data:', data);
       
       if (response.ok && data.success) {
+        console.log('✅ Login successful!');
         const user = data.user;
+        console.log('👤 User:', user);
+        
         localStorage.setItem('user', JSON.stringify(user));
         localStorage.setItem('session', JSON.stringify(data.session));
+        console.log('💾 Saved to localStorage');
         
         // Redirect based on role
+        let redirectPath = '/dashboard';
         if (user.role === 'admin') {
-          navigate('/admin');
+          redirectPath = '/admin';
         } else if (user.role === 'venue') {
-          navigate('/venue-dashboard');
-        } else {
-          navigate('/dashboard');
+          redirectPath = '/venue-dashboard';
         }
+        
+        console.log('🚀 Navigating to:', redirectPath);
+        navigate(redirectPath);
       } else {
+        console.log('❌ Login failed');
         // Handle errors
         if (data.status === 'pending') {
+          console.log('⏳ Account pending approval');
           setPendingApproval(true);
           setError(data.message || 'Your account is pending admin approval');
         } else if (data.status === 'rejected') {
+          console.log('🚫 Account rejected');
           setError(data.message || 'Your account was not approved. Please contact support.');
         } else {
+          console.log('🔑 Invalid credentials or other error');
           setError(data.error || 'Invalid email or password');
         }
       }
     } catch (err) {
-      console.error('Login error:', err);
-      setError('Failed to connect to server. Please try again.');
+      console.error('💥 Fetch error:', err);
+      console.error('Error name:', err.name);
+      console.error('Error message:', err.message);
+      setError('Failed to connect to server. Please check console for details.');
     } finally {
+      console.log('🏁 Setting loading to false');
       setLoading(false);
     }
   };
@@ -79,6 +106,12 @@ function Login() {
         {/* Left Side - Login Form */}
         <div className="flex items-center justify-center p-8">
           <div className="max-w-md w-full">
+            {/* Debug Info */}
+            <div className="mb-4 p-3 bg-gray-100 rounded-lg text-xs">
+              <p className="font-mono">API URL: {process.env.REACT_APP_API_URL || 'NOT SET'}</p>
+              <p className="font-mono text-red-600">Open browser console (F12) to see debug logs</p>
+            </div>
+
             {/* Header */}
             <div className="text-center mb-8">
               <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-purple-600 to-blue-600 rounded-2xl mb-4 shadow-lg">
@@ -90,7 +123,7 @@ function Login() {
 
             {/* Navigation Message */}
             {navigationMessage && (
-              <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl flex items-start gap-3 animate-slideDown">
+              <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl flex items-start gap-3">
                 <CheckCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
                 <p className="text-sm text-blue-800">{navigationMessage}</p>
               </div>
@@ -135,7 +168,10 @@ function Login() {
                     <input
                       type="email"
                       value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      onChange={(e) => {
+                        console.log('📧 Email changed:', e.target.value);
+                        setFormData({ ...formData, email: e.target.value });
+                      }}
                       className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                       placeholder="you@example.com"
                       disabled={loading}
@@ -154,7 +190,10 @@ function Login() {
                     <input
                       type="password"
                       value={formData.password}
-                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      onChange={(e) => {
+                        console.log('🔒 Password changed');
+                        setFormData({ ...formData, password: e.target.value });
+                      }}
                       className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                       placeholder="••••••••"
                       disabled={loading}
@@ -167,6 +206,7 @@ function Login() {
                 <button
                   type="submit"
                   disabled={loading}
+                  onClick={() => console.log('🖱️ Button clicked')}
                   className="w-full py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl font-semibold hover:from-purple-700 hover:to-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
                 >
                   {loading ? (
@@ -209,10 +249,9 @@ function Login() {
           </div>
         </div>
 
-        {/* Right Side - Benefits & Features */}
+        {/* Right Side - Benefits (same as before) */}
         <div className="hidden lg:flex items-center justify-center bg-gradient-to-br from-purple-600 to-blue-600 p-12">
           <div className="max-w-lg text-white">
-            {/* Hero Section */}
             <div className="mb-12">
               <h2 className="text-4xl font-bold mb-4">Transform Your Event Management</h2>
               <p className="text-purple-100 text-lg">
@@ -220,7 +259,6 @@ function Login() {
               </p>
             </div>
 
-            {/* Benefits for Hosts */}
             <div className="mb-8">
               <h3 className="text-2xl font-bold mb-6 flex items-center gap-2">
                 <Users className="w-6 h-6" />
@@ -269,7 +307,6 @@ function Login() {
               </div>
             </div>
 
-            {/* Benefits for Venues */}
             <div className="mb-8">
               <h3 className="text-2xl font-bold mb-6 flex items-center gap-2">
                 <TrendingUp className="w-6 h-6" />
@@ -318,7 +355,6 @@ function Login() {
               </div>
             </div>
 
-            {/* Stats */}
             <div className="grid grid-cols-3 gap-4 pt-8 border-t border-white/20">
               <div className="text-center">
                 <div className="text-3xl font-bold">10K+</div>
