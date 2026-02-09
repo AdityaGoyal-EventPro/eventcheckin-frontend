@@ -2,17 +2,6 @@ import React, { useState } from 'react';
 import { X, Phone, AlertCircle, CheckCircle } from 'lucide-react';
 import { guestsAPI } from '../api';
 
-const WRISTBAND_COLORS = [
-  { value: 'red', label: 'Red', color: 'bg-red-500' },
-  { value: 'blue', label: 'Blue', color: 'bg-blue-500' },
-  { value: 'green', label: 'Green', color: 'bg-green-500' },
-  { value: 'yellow', label: 'Yellow', color: 'bg-yellow-400' },
-  { value: 'purple', label: 'Purple', color: 'bg-purple-500' },
-  { value: 'orange', label: 'Orange', color: 'bg-orange-500' },
-  { value: 'pink', label: 'Pink', color: 'bg-pink-500' },
-  { value: 'black', label: 'Black', color: 'bg-black' }
-];
-
 // Inline PhoneInput component
 function PhoneInput({ value = '', onChange, required = false, disabled = false }) {
   const [error, setError] = useState('');
@@ -139,8 +128,7 @@ function WalkInModal({ eventId, onClose, onWalkInAdded }) {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    phone: '',
-    wristband_color: 'red'
+    phone: ''
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -206,35 +194,12 @@ function WalkInModal({ eventId, onClose, onWalkInAdded }) {
             />
           </div>
 
-          {/* Phone Input with Validation */}
+          {/* Phone Input with Validation - NO wristband color */}
           <PhoneInput
             value={formData.phone}
             onChange={(phone) => setFormData({...formData, phone})}
             required={false}
           />
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Wristband Color
-            </label>
-            <div className="grid grid-cols-4 gap-2">
-              {WRISTBAND_COLORS.map((color) => (
-                <button
-                  key={color.value}
-                  type="button"
-                  onClick={() => setFormData({...formData, wristband_color: color.value})}
-                  className={`p-3 rounded-lg border-2 transition-all ${
-                    formData.wristband_color === color.value
-                      ? 'border-indigo-600 shadow-md'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <div className={`w-8 h-8 ${color.color} rounded mx-auto mb-1`}></div>
-                  <span className="text-xs">{color.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
 
           <div className="flex gap-3 pt-4">
             <button
