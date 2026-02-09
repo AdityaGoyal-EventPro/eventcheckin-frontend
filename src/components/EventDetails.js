@@ -8,6 +8,7 @@ import WalkInModal from './WalkInModal';
 import EditGuestModal from './EditGuestModal';
 import CheckInSuccessDialog from './CheckInSuccessDialog';
 import CSVImport from './CSVImport';
+import AddGuestModal from './AddGuestModal';  // ✅ ADDED THIS LINE
 
 function EventDetails({ user }) {
   const { id: eventId } = useParams();
@@ -119,29 +120,7 @@ function EventDetails({ user }) {
     }
   };
 
-  // Simple inline Add Guest form
-  const handleAddGuest = async (e) => {
-    e.preventDefault();
-    const formData = new FormData(e.target);
-    const guestData = {
-      event_id: eventId,  // ← ADDED: Backend needs event_id
-      name: formData.get('name'),
-      email: formData.get('email'),
-      phone: formData.get('phone'),
-      category: formData.get('category') || 'General',
-      plus_ones: parseInt(formData.get('plus_ones')) || 0
-    };
-
-    try {
-      await guestsAPI.create(guestData);  // ← FIXED: Don't pass eventId separately
-      setShowAddGuest(false);
-      loadEventData();
-      e.target.reset();
-    } catch (error) {
-      console.error('Add guest error:', error);
-      alert('Failed to add guest: ' + (error.response?.data?.error || error.message));
-    }
-  };
+  // ❌ REMOVED: handleAddGuest function (not needed with component)
 
   const getFilteredGuests = () => {
     let filtered = guests;
@@ -386,39 +365,16 @@ function EventDetails({ user }) {
         </div>
       </div>
 
-      {/* Simple Add Guest Modal */}
+      {/* ✅ REPLACED: Using AddGuestModal component instead of inline form */}
       {showAddGuest && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold">Add Guest</h2>
-              <button onClick={() => setShowAddGuest(false)} className="p-2 hover:bg-gray-100 rounded-lg">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            
-            <form onSubmit={handleAddGuest} className="space-y-4">
-              <input name="name" placeholder="Guest Name *" required className="w-full px-4 py-2 border rounded-lg" />
-              <input name="email" type="email" placeholder="Email" className="w-full px-4 py-2 border rounded-lg" />
-              <input name="phone" type="tel" placeholder="Phone" className="w-full px-4 py-2 border rounded-lg" />
-              <select name="category" className="w-full px-4 py-2 border rounded-lg">
-                <option value="General">General</option>
-                <option value="VIP">VIP</option>
-                <option value="VVIP">VVIP</option>
-              </select>
-              <input name="plus_ones" type="number" min="0" placeholder="Plus Ones" className="w-full px-4 py-2 border rounded-lg" />
-              
-              <div className="flex gap-3 pt-4">
-                <button type="button" onClick={() => setShowAddGuest(false)} className="flex-1 px-4 py-2 border rounded-lg">
-                  Cancel
-                </button>
-                <button type="submit" className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg">
-                  Add Guest
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <AddGuestModal
+          eventId={eventId}
+          onClose={() => setShowAddGuest(false)}
+          onGuestAdded={() => {
+            setShowAddGuest(false);
+            loadEventData();
+          }}
+        />
       )}
 
       {/* Import CSV Modal */}
