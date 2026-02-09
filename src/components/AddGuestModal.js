@@ -170,7 +170,13 @@ function AddGuestModal({ eventId, onClose, onGuestAdded }) {
     setSubmitting(true);
 
     try {
-      await guestsAPI.create(eventId, formData);
+      // Add event_id to formData before sending
+      const guestData = {
+        ...formData,
+        event_id: eventId
+      };
+      
+      await guestsAPI.create(guestData);
       onGuestAdded();
     } catch (error) {
       console.error('Error adding guest:', error);
