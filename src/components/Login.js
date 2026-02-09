@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LogIn, Mail, Lock, CheckCircle, AlertCircle, Users, BarChart3, QrCode, Zap, Shield, TrendingUp } from 'lucide-react';
+import { LogIn, CheckCircle, AlertCircle, Users, BarChart3, QrCode, Zap, Shield, TrendingUp } from 'lucide-react';
 
 function Login() {
   const navigate = useNavigate();
@@ -139,46 +139,36 @@ function Login() {
             {/* Login Form */}
             <div className="bg-white rounded-2xl shadow-xl p-8">
               <form onSubmit={handleSubmit} className="space-y-5">
-                {/* Email */}
+                {/* Email - NO ICON */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Email Address
                   </label>
-                  <div className="relative">
-                    <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                      <Mail className="w-5 h-5 text-gray-400" />
-                    </div>
-                    <input
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                      placeholder="you@example.com"
-                      disabled={loading}
-                      required
-                    />
-                  </div>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    placeholder="you@example.com"
+                    disabled={loading}
+                    required
+                  />
                 </div>
 
-                {/* Password */}
+                {/* Password - NO ICON */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Password
                   </label>
-                  <div className="relative">
-                    <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                      <Lock className="w-5 h-5 text-gray-400" />
-                    </div>
-                    <input
-                      type="password"
-                      value={formData.password}
-                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                      className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                      placeholder="••••••••"
-                      disabled={loading}
-                      required
-                    />
-                  </div>
+                  <input
+                    type="password"
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    placeholder="••••••••"
+                    disabled={loading}
+                    required
+                  />
                 </div>
 
                 {/* Submit Button */}
