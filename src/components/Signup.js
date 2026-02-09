@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { UserPlus, Mail, Lock, User, Phone, MapPin, AlertCircle, CheckCircle } from 'lucide-react';
+import { UserPlus, AlertCircle, CheckCircle } from 'lucide-react';
 
 function Signup() {
   const navigate = useNavigate();
@@ -71,7 +71,6 @@ function Signup() {
   const handleSubmit = async () => {
     setError('');
 
-    // Validation
     if (!formData.name || !formData.email || !formData.phone || !formData.password) {
       setError('Please fill in all required fields');
       return;
@@ -122,7 +121,6 @@ function Signup() {
       const data = await response.json();
 
       if (response.ok && data.success) {
-        // Redirect immediately to login with message
         navigate('/login', { 
           state: { 
             message: 'Account created successfully! Your account is pending admin approval. You will receive an email once approved.' 
@@ -204,44 +202,34 @@ function Signup() {
               </div>
             </div>
 
-            {/* Name */}
+            {/* Name - NO ICON */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Full Name *
               </label>
-              <div className="relative">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                  <User className="w-5 h-5 text-gray-400" />
-                </div>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  placeholder="John Doe"
-                  disabled={loading}
-                />
-              </div>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                placeholder="John Doe"
+                disabled={loading}
+              />
             </div>
 
-            {/* Email */}
+            {/* Email - NO ICON */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Email Address *
               </label>
-              <div className="relative">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                  <Mail className="w-5 h-5 text-gray-400" />
-                </div>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  placeholder="john@example.com"
-                  disabled={loading}
-                />
-              </div>
+              <input
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                placeholder="john@example.com"
+                disabled={loading}
+              />
             </div>
 
             {/* Phone Number */}
@@ -249,18 +237,15 @@ function Signup() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Mobile Number * <span className="text-xs text-gray-500">(10 digits only, no country code)</span>
               </label>
-              <div className="relative">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                  <Phone className="w-5 h-5 text-gray-400" />
-                </div>
-                <div className="absolute left-12 top-1/2 -translate-y-1/2 text-gray-500 font-medium pointer-events-none">
+              <div className="flex gap-2">
+                <div className="px-4 py-3 bg-gray-100 border border-gray-300 rounded-xl font-medium text-gray-700">
                   +91
                 </div>
                 <input
                   type="tel"
                   value={formData.phone}
                   onChange={handlePhoneChange}
-                  className={`w-full pl-24 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
+                  className={`flex-1 px-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
                     phoneError ? 'border-red-300 bg-red-50' : 'border-gray-300'
                   }`}
                   placeholder="9876543210"
@@ -285,73 +270,58 @@ function Signup() {
               </p>
             </div>
 
-            {/* Venue Selection (for venue users) */}
+            {/* Venue Selection */}
             {formData.role === 'venue' && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Select Venue *
                 </label>
-                <div className="relative">
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                    <MapPin className="w-5 h-5 text-gray-400" />
-                  </div>
-                  <select
-                    value={formData.venue_id}
-                    onChange={(e) => setFormData({ ...formData, venue_id: e.target.value })}
-                    className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent appearance-none bg-white"
-                    disabled={loading}
-                  >
-                    <option value="">Choose a venue...</option>
-                    {venues.map((venue) => (
-                      <option key={venue.id} value={venue.id}>
-                        {venue.name} - {venue.city}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <select
+                  value={formData.venue_id}
+                  onChange={(e) => setFormData({ ...formData, venue_id: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent appearance-none bg-white"
+                  disabled={loading}
+                >
+                  <option value="">Choose a venue...</option>
+                  {venues.map((venue) => (
+                    <option key={venue.id} value={venue.id}>
+                      {venue.name} - {venue.city}
+                    </option>
+                  ))}
+                </select>
               </div>
             )}
 
-            {/* Password */}
+            {/* Password - NO ICON */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Password *
               </label>
-              <div className="relative">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                  <Lock className="w-5 h-5 text-gray-400" />
-                </div>
-                <input
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  placeholder="••••••••"
-                  minLength="6"
-                  disabled={loading}
-                />
-              </div>
+              <input
+                type="password"
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                placeholder="••••••••"
+                minLength="6"
+                disabled={loading}
+              />
               <p className="mt-1 text-xs text-gray-500">Minimum 6 characters</p>
             </div>
 
-            {/* Confirm Password */}
+            {/* Confirm Password - NO ICON */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Confirm Password *
               </label>
-              <div className="relative">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                  <Lock className="w-5 h-5 text-gray-400" />
-                </div>
-                <input
-                  type="password"
-                  value={formData.confirmPassword}
-                  onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                  className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  placeholder="••••••••"
-                  disabled={loading}
-                />
-              </div>
+              <input
+                type="password"
+                value={formData.confirmPassword}
+                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                placeholder="••••••••"
+                disabled={loading}
+              />
             </div>
 
             {/* Submit Button */}
