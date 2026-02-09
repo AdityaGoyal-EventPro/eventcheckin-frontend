@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { UserPlus, Mail, Lock, User, Phone, MapPin, AlertCircle, CheckCircle } from 'lucide-react';
-import { authAPI, venuesAPI } from '../api';
 
 function Signup() {
   const navigate = useNavigate();
@@ -26,8 +25,9 @@ function Signup() {
 
   const loadVenues = async () => {
     try {
-      const response = await venuesAPI.getAll();
-      setVenues(response.data.venues || []);
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/venues`);
+      const data = await response.json();
+      setVenues(data.venues || []);
     } catch (error) {
       console.error('Failed to load venues:', error);
     }
@@ -77,6 +77,8 @@ function Signup() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    e.stopPropagation();
+    
     setError('');
     setSuccessMessage('');
 
@@ -114,22 +116,30 @@ function Signup() {
     setLoading(true);
 
     try {
-      const response = await authAPI.signup({
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        password: formData.password,
-        role: formData.role,
-        venue_id: formData.role === 'venue' ? formData.venue_id : null
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/auth/signup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          password: formData.password,
+          role: formData.role,
+          venue_id: formData.role === 'venue' ? formData.venue_id : null
+        })
       });
 
-      if (response.data.success) {
-        const user = response.data.user;
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        const user = data.user;
         
         // Check if account needs approval
         if (user.status === 'pending') {
           setSuccessMessage(
-            response.data.message || 
+            data.message || 
             'Account created successfully! Your account is pending admin approval. Check your email for details.'
           );
           
@@ -160,9 +170,12 @@ function Signup() {
             } 
           });
         }
+      } else {
+        setError(data.error || 'Failed to create account');
       }
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to create account');
+      console.error('Signup error:', err);
+      setError('Failed to connect to server. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -217,6 +230,7 @@ function Signup() {
                       ? 'border-purple-500 bg-purple-50'
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
+                  disabled={loading}
                 >
                   <div className="text-center">
                     <div className="text-2xl mb-1">🎉</div>
@@ -233,6 +247,7 @@ function Signup() {
                       ? 'border-blue-500 bg-blue-50'
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
+                  disabled={loading}
                 >
                   <div className="text-center">
                     <div className="text-2xl mb-1">🏢</div>
@@ -256,6 +271,7 @@ function Signup() {
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   placeholder="John Doe"
+                  disabled={loading}
                   required
                 />
               </div>
@@ -274,6 +290,7 @@ function Signup() {
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   placeholder="john@example.com"
+                  disabled={loading}
                   required
                 />
               </div>
@@ -298,6 +315,7 @@ function Signup() {
                   }`}
                   placeholder="9876543210"
                   maxLength="10"
+                  disabled={loading}
                   required
                 />
               </div>
@@ -330,6 +348,7 @@ function Signup() {
                     value={formData.venue_id}
                     onChange={(e) => setFormData({ ...formData, venue_id: e.target.value })}
                     className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent appearance-none bg-white"
+                    disabled={loading}
                     required
                   >
                     <option value="">Choose a venue...</option>
@@ -357,6 +376,7 @@ function Signup() {
                   className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   placeholder="••••••••"
                   minLength="6"
+                  disabled={loading}
                   required
                 />
               </div>
@@ -376,6 +396,7 @@ function Signup() {
                   onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                   className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   placeholder="••••••••"
+                  disabled={loading}
                   required
                 />
               </div>
