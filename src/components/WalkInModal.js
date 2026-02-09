@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, UserPlus } from 'lucide-react';
 import { guestsAPI } from '../api';
+import PhoneInput from './PhoneInput';
 
 function WalkInModal({ eventId, eventName, onClose, onSuccess }) {
   const [formData, setFormData] = useState({
@@ -129,13 +130,10 @@ function WalkInModal({ eventId, eventName, onClose, onSuccess }) {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Phone
                 </label>
-                <input
-                  type="tel"
-                  name="phone"
+                <PhoneInput
                   value={formData.phone}
-                  onChange={handleChange}
-                  placeholder="+1-555-0100"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                  onChange={(phone) => setFormData({...formData, phone})}
+                  required={true}
                 />
               </div>
             </div>
