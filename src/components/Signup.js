@@ -210,12 +210,14 @@ function Signup() {
                 Full Name *
               </label>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                  <User className="w-5 h-5 text-gray-400" />
+                </div>
                 <input
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   placeholder="John Doe"
                   disabled={loading}
                 />
@@ -228,12 +230,14 @@ function Signup() {
                 Email Address *
               </label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                  <Mail className="w-5 h-5 text-gray-400" />
+                </div>
                 <input
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   placeholder="john@example.com"
                   disabled={loading}
                 />
@@ -246,15 +250,17 @@ function Signup() {
                 Mobile Number * <span className="text-xs text-gray-500">(10 digits only, no country code)</span>
               </label>
               <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <div className="absolute left-11 top-1/2 -translate-y-1/2 text-gray-500 font-medium">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                  <Phone className="w-5 h-5 text-gray-400" />
+                </div>
+                <div className="absolute left-12 top-1/2 -translate-y-1/2 text-gray-500 font-medium pointer-events-none">
                   +91
                 </div>
                 <input
                   type="tel"
                   value={formData.phone}
                   onChange={handlePhoneChange}
-                  className={`w-full pl-20 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
+                  className={`w-full pl-24 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
                     phoneError ? 'border-red-300 bg-red-50' : 'border-gray-300'
                   }`}
                   placeholder="9876543210"
@@ -286,11 +292,13 @@ function Signup() {
                   Select Venue *
                 </label>
                 <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <MapPin className="w-5 h-5 text-gray-400" />
+                  </div>
                   <select
                     value={formData.venue_id}
                     onChange={(e) => setFormData({ ...formData, venue_id: e.target.value })}
-                    className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent appearance-none bg-white"
+                    className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent appearance-none bg-white"
                     disabled={loading}
                   >
                     <option value="">Choose a venue...</option>
@@ -310,12 +318,14 @@ function Signup() {
                 Password *
               </label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                  <Lock className="w-5 h-5 text-gray-400" />
+                </div>
                 <input
                   type="password"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   placeholder="••••••••"
                   minLength="6"
                   disabled={loading}
@@ -330,12 +340,14 @@ function Signup() {
                 Confirm Password *
               </label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                  <Lock className="w-5 h-5 text-gray-400" />
+                </div>
                 <input
                   type="password"
                   value={formData.confirmPassword}
                   onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                  className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   placeholder="••••••••"
                   disabled={loading}
                 />
