@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Camera, LogOut, RefreshCw } from 'lucide-react';
 import { eventsAPI } from '../api';
+import WristbandAssignment from './WristbandAssignment';
 
 function VenueDashboard({ user, onLogout }) {
   const navigate = useNavigate();
@@ -62,6 +63,26 @@ function VenueDashboard({ user, onLogout }) {
   const handleGlobalScan = () => {
     console.log('Opening global scanner');
     navigate('/scan');
+  };
+
+  const handleWristbandAssignment = async (eventId, colorName) => {
+    try {
+      const response = await fetch(`https://eventcheckin-backend-production.up.railway.app/api/events/${eventId}/wristband`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ wristband_color: colorName })
+      });
+      
+      if (!response.ok) throw new Error('Failed to update wristband');
+      
+      // Reload events to show updated wristband color
+      loadEvents();
+    } catch (error) {
+      console.error('Error assigning wristband:', error);
+      alert('Failed to assign wristband color');
+    }
   };
 
   if (loading) {
@@ -184,13 +205,21 @@ function VenueDashboard({ user, onLogout }) {
                   </div>
 
                   {/* Progress Bar */}
-                  <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div className="w-full bg-gray-200 rounded-full h-2 mb-4">
                     <div
                       className="bg-gradient-to-r from-indigo-600 to-purple-600 h-2 rounded-full transition-all"
                       style={{ 
                         width: `${Math.min(((event.checked_in_count || 0) / (event.total_guests || 1)) * 100, 100)}%` 
                       }}
                     ></div>
+                  </div>
+
+                  {/* Wristband Assignment */}
+                  <div className="mb-4" onClick={(e) => e.stopPropagation()}>
+                    <WristbandAssignment 
+                      event={event}
+                      onColorAssigned={handleWristbandAssignment}
+                    />
                   </div>
 
                   {/* Scan Button */}
