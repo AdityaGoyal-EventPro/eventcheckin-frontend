@@ -1,200 +1,258 @@
 import React, { useState } from 'react';
-import { X, UserPlus } from 'lucide-react';
+import { X, Phone, AlertCircle, CheckCircle } from 'lucide-react';
 import { guestsAPI } from '../api';
-import PhoneInput from './PhoneInput';
 
-function WalkInModal({ eventId, eventName, onClose, onSuccess }) {
+const WRISTBAND_COLORS = [
+  { value: 'red', label: 'Red', color: 'bg-red-500' },
+  { value: 'blue', label: 'Blue', color: 'bg-blue-500' },
+  { value: 'green', label: 'Green', color: 'bg-green-500' },
+  { value: 'yellow', label: 'Yellow', color: 'bg-yellow-400' },
+  { value: 'purple', label: 'Purple', color: 'bg-purple-500' },
+  { value: 'orange', label: 'Orange', color: 'bg-orange-500' },
+  { value: 'pink', label: 'Pink', color: 'bg-pink-500' },
+  { value: 'black', label: 'Black', color: 'bg-black' }
+];
+
+// Inline PhoneInput component
+function PhoneInput({ value = '', onChange, required = false, disabled = false }) {
+  const [error, setError] = useState('');
+  const [touched, setTouched] = useState(false);
+
+  const validatePhone = (phone) => {
+    const cleaned = phone.replace(/\D/g, '');
+    
+    if (cleaned.length === 0) {
+      if (required) {
+        setError('Mobile number is required');
+        return false;
+      }
+      setError('');
+      return true;
+    }
+    
+    if (cleaned.length < 10) {
+      setError('Please enter 10 digits');
+      return false;
+    }
+    
+    if (cleaned.length > 10) {
+      setError('Maximum 10 digits allowed');
+      return false;
+    }
+    
+    if (!['6', '7', '8', '9'].includes(cleaned[0])) {
+      setError('Mobile number should start with 6, 7, 8, or 9');
+      return false;
+    }
+    
+    setError('');
+    return true;
+  };
+
+  const handleChange = (e) => {
+    const input = e.target.value;
+    const cleaned = input.replace(/\D/g, '');
+    const limited = cleaned.slice(0, 10);
+    
+    onChange(limited);
+    
+    if (touched) {
+      validatePhone(limited);
+    }
+  };
+
+  const handleBlur = () => {
+    setTouched(true);
+    validatePhone(value);
+  };
+
+  const isValid = value.length === 10 && !error;
+  const showValidation = touched && value.length > 0;
+
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">
+        Mobile Number {required && <span className="text-red-500">*</span>}
+        {!required && <span className="text-gray-500 text-xs ml-1">(Optional)</span>}
+        <span className="text-xs text-gray-500 font-normal ml-2">
+          (10 digits, no country code)
+        </span>
+      </label>
+      
+      <div className="relative">
+        <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-2 pointer-events-none">
+          <Phone className="w-4 h-4 text-gray-400" />
+          <span className="text-gray-600 font-medium text-sm">+91</span>
+        </div>
+        
+        <input
+          type="tel"
+          value={value}
+          onChange={handleChange}
+          onBlur={handleBlur}
+          className={`w-full pl-20 pr-10 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all ${
+            error && showValidation
+              ? 'border-red-300 bg-red-50'
+              : isValid && showValidation
+              ? 'border-green-300 bg-green-50'
+              : 'border-gray-300'
+          }`}
+          placeholder="9876543210"
+          maxLength="10"
+          disabled={disabled}
+          required={required}
+        />
+        
+        {showValidation && (
+          <div className="absolute right-3 top-1/2 -translate-y-1/2">
+            {error ? (
+              <AlertCircle className="w-5 h-5 text-red-500" />
+            ) : isValid ? (
+              <CheckCircle className="w-5 h-5 text-green-500" />
+            ) : null}
+          </div>
+        )}
+      </div>
+      
+      {error && showValidation && (
+        <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+          <AlertCircle className="w-3 h-3" />
+          {error}
+        </p>
+      )}
+      
+      {isValid && showValidation && (
+        <p className="mt-1 text-xs text-green-600 flex items-center gap-1">
+          <CheckCircle className="w-3 h-3" />
+          Valid mobile number
+        </p>
+      )}
+      
+      <p className="mt-1 text-xs text-gray-500">
+        📱 10 digits starting with 6, 7, 8, or 9
+      </p>
+    </div>
+  );
+}
+
+function WalkInModal({ eventId, onClose, onWalkInAdded }) {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
-    category: 'General',
-    plus_ones: 0
+    wristband_color: 'red'
   });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleChange = (e) => {
-    const value = e.target.type === 'number' ? parseInt(e.target.value) || 0 : e.target.value;
-    setFormData({
-      ...formData,
-      [e.target.name]: value
-    });
-  };
-
-  const handleSubmit = async (checkInImmediately) => {
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
     if (!formData.name.trim()) {
-      setError('Guest name is required');
+      alert('Guest name is required');
       return;
     }
 
-    setLoading(true);
-    setError('');
+    setSubmitting(true);
 
     try {
-      const guestData = {
-        event_id: eventId,
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        category: formData.category,
-        plus_ones: formData.plus_ones,
-        is_walkin: true
-      };
-
-      await guestsAPI.create(guestData);
-
-      // If checking in immediately, call check-in endpoint
-      // (This would need the guest ID returned from create)
-      
-      alert(checkInImmediately 
-        ? `✅ ${formData.name} added as walk-in and checked in!`
-        : `✅ ${formData.name} added to guest list!`
-      );
-      
-      if (onSuccess) onSuccess();
-      onClose();
-    } catch (err) {
-      setError(err.response?.data?.error || 'Failed to add walk-in guest');
-    } finally {
-      setLoading(false);
+      const response = await guestsAPI.addWalkIn(eventId, formData);
+      const newGuest = response.data.guest;
+      onWalkInAdded(newGuest);
+    } catch (error) {
+      console.error('Walk-in error:', error);
+      alert('Failed to register walk-in guest');
+      setSubmitting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full">
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
-                <UserPlus className="w-5 h-5 text-yellow-600" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-gray-900">Add Walk-In Guest</h2>
-                <p className="text-sm text-gray-600">{eventName}</p>
-              </div>
-            </div>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-              <X className="w-6 h-6" />
-            </button>
-          </div>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+          <h2 className="text-2xl font-bold">Register Walk-In Guest</h2>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 rounded-lg transition"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
-        <div className="p-6">
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-6">
-            <p className="text-sm text-yellow-800">
-              <strong>Walk-in guests</strong> will be added to the event guest list and visible to the host.
-            </p>
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Guest Name *
+            </label>
+            <input
+              type="text"
+              value={formData.name}
+              onChange={(e) => setFormData({...formData, name: e.target.value})}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              placeholder="Enter guest name"
+              required
+            />
           </div>
 
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
-              <p className="text-sm text-red-800">{error}</p>
-            </div>
-          )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Email <span className="text-gray-500 text-xs">(Optional)</span>
+            </label>
+            <input
+              type="email"
+              value={formData.email}
+              onChange={(e) => setFormData({...formData, email: e.target.value})}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              placeholder="guest@email.com"
+            />
+          </div>
 
-          <div className="space-y-4 mb-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Guest Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                placeholder="John Doe"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                required
-                autoFocus
-              />
-            </div>
+          {/* Phone Input with Validation */}
+          <PhoneInput
+            value={formData.phone}
+            onChange={(phone) => setFormData({...formData, phone})}
+            required={false}
+          />
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  placeholder="john@example.com"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Phone
-                </label>
-                <PhoneInput
-                  value={formData.phone}
-                  onChange={(phone) => setFormData({...formData, phone})}
-                  required={true}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Category
-                </label>
-                <select
-                  name="category"
-                  value={formData.category}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Wristband Color
+            </label>
+            <div className="grid grid-cols-4 gap-2">
+              {WRISTBAND_COLORS.map((color) => (
+                <button
+                  key={color.value}
+                  type="button"
+                  onClick={() => setFormData({...formData, wristband_color: color.value})}
+                  className={`p-3 rounded-lg border-2 transition-all ${
+                    formData.wristband_color === color.value
+                      ? 'border-indigo-600 shadow-md'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
                 >
-                  <option value="General">General</option>
-                  <option value="VIP">VIP</option>
-                  <option value="Staff">Staff</option>
-                  <option value="Press">Press</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Plus Ones
-                </label>
-                <select
-                  name="plus_ones"
-                  value={formData.plus_ones}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                >
-                  {[0, 1, 2, 3, 4, 5].map(num => (
-                    <option key={num} value={num}>{num === 0 ? 'None' : `+${num}`}</option>
-                  ))}
-                </select>
-              </div>
+                  <div className={`w-8 h-8 ${color.color} rounded mx-auto mb-1`}></div>
+                  <span className="text-xs">{color.label}</span>
+                </button>
+              ))}
             </div>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex gap-3 pt-4">
             <button
-              onClick={() => handleSubmit(true)}
-              disabled={!formData.name.trim() || loading}
-              className="flex-1 px-6 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              type="button"
+              onClick={onClose}
+              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
             >
-              {loading ? 'Adding...' : 'Add & Check In'}
+              Cancel
             </button>
             <button
-              onClick={() => handleSubmit(false)}
-              disabled={!formData.name.trim() || loading}
-              className="flex-1 px-6 py-3 bg-yellow-600 text-white rounded-lg font-semibold hover:bg-yellow-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              type="submit"
+              disabled={submitting}
+              className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition disabled:opacity-50"
             >
-              {loading ? 'Adding...' : 'Add to List'}
+              {submitting ? 'Registering...' : 'Register Guest'}
             </button>
           </div>
-
-          <p className="text-xs text-gray-500 text-center mt-4">
-            Only guest name is required. Email and phone are optional.
-          </p>
-        </div>
+        </form>
       </div>
     </div>
   );
