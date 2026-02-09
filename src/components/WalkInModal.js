@@ -81,7 +81,7 @@ function PhoneInput({ value = '', onChange, required = false, disabled = false }
           value={value}
           onChange={handleChange}
           onBlur={handleBlur}
-          className={`w-full pl-24 pr-12 py-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-base ${
+          className={`w-full pl-28 pr-12 py-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-base ${
             error && showValidation
               ? 'border-red-300 bg-red-50'
               : isValid && showValidation
