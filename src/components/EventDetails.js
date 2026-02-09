@@ -94,6 +94,18 @@ function EventDetails({ user }) {
     setShowEditGuest(true);
   };
 
+  const handleSaveGuest = async (guestId, updatedData) => {
+    try {
+      await guestsAPI.update(guestId, updatedData);
+      setShowEditGuest(false);
+      setSelectedGuest(null);
+      loadEventData();
+    } catch (error) {
+      console.error('Update guest error:', error);
+      throw error; // Re-throw so EditGuestModal can show error
+    }
+  };
+
   const handleDeleteGuest = async (guestId) => {
     if (!window.confirm('Remove this guest from the list?')) {
       return;
@@ -447,6 +459,7 @@ function EventDetails({ user }) {
       {showEditGuest && selectedGuest && (
         <EditGuestModal
           guest={selectedGuest}
+          onSave={handleSaveGuest}
           onClose={() => {
             setShowEditGuest(false);
             setSelectedGuest(null);
