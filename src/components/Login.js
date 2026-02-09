@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { LogIn, Mail, Lock, CheckCircle, AlertCircle, Users, BarChart3, QrCode, Zap, Shield, TrendingUp } from 'lucide-react';
-import { authAPI } from '../api';
 
 function Login() {
   const navigate = useNavigate();
@@ -16,6 +15,8 @@ function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    e.stopPropagation();
+    
     setError('');
     setPendingApproval(false);
 
@@ -27,12 +28,23 @@ function Login() {
     setLoading(true);
 
     try {
-      const response = await authAPI.login(formData.email, formData.password);
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password
+        })
+      });
+
+      const data = await response.json();
       
-      if (response.data.success) {
-        const user = response.data.user;
+      if (response.ok && data.success) {
+        const user = data.user;
         localStorage.setItem('user', JSON.stringify(user));
-        localStorage.setItem('session', JSON.stringify(response.data.session));
+        localStorage.setItem('session', JSON.stringify(data.session));
         
         // Redirect based on role
         if (user.role === 'admin') {
@@ -42,19 +54,20 @@ function Login() {
         } else {
           navigate('/dashboard');
         }
+      } else {
+        // Handle errors
+        if (data.status === 'pending') {
+          setPendingApproval(true);
+          setError(data.message || 'Your account is pending admin approval');
+        } else if (data.status === 'rejected') {
+          setError(data.message || 'Your account was not approved. Please contact support.');
+        } else {
+          setError(data.error || 'Invalid email or password');
+        }
       }
     } catch (err) {
-      const errorData = err.response?.data;
-      
-      // Check if account is pending approval
-      if (errorData?.status === 'pending') {
-        setPendingApproval(true);
-        setError(errorData.message || 'Your account is pending admin approval');
-      } else if (errorData?.status === 'rejected') {
-        setError(errorData.message || 'Your account was not approved. Please contact support.');
-      } else {
-        setError(errorData?.error || 'Invalid email or password');
-      }
+      console.error('Login error:', err);
+      setError('Failed to connect to server. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -125,6 +138,7 @@ function Login() {
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                       className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                       placeholder="you@example.com"
+                      disabled={loading}
                       required
                     />
                   </div>
@@ -143,6 +157,7 @@ function Login() {
                       onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                       className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                       placeholder="••••••••"
+                      disabled={loading}
                       required
                     />
                   </div>
