@@ -7,6 +7,7 @@ import SendInvitationsModal from './SendInvitationsModal';
 import WalkInModal from './WalkInModal';
 import EditGuestModal from './EditGuestModal';
 import CheckInSuccessDialog from './CheckInSuccessDialog';
+import ImportCSVModal from './ImportCSVModal';
 
 function EventDetails({ user }) {
   const { id: eventId } = useParams();
@@ -125,30 +126,6 @@ function EventDetails({ user }) {
       e.target.reset();
     } catch (error) {
       alert('Failed to add guest');
-    }
-  };
-
-  // Simple inline CSV Import
-  const handleCSVImport = async (e) => {
-    e.preventDefault();
-    const fileInput = e.target.querySelector('input[type="file"]');
-    const file = fileInput.files[0];
-    
-    if (!file) {
-      alert('Please select a CSV file');
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-      await guestsAPI.importCSV(eventId, formData);
-      setShowImportCSV(false);
-      loadEventData();
-      alert('CSV imported successfully!');
-    } catch (error) {
-      alert('Failed to import CSV');
     }
   };
 
@@ -430,38 +407,16 @@ function EventDetails({ user }) {
         </div>
       )}
 
-      {/* Simple Import CSV Modal */}
+      {/* Import CSV Modal */}
       {showImportCSV && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold">Import CSV</h2>
-              <button onClick={() => setShowImportCSV(false)} className="p-2 hover:bg-gray-100 rounded-lg">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            
-            <form onSubmit={handleCSVImport} className="space-y-4">
-              <div className="border-2 border-dashed rounded-lg p-6 text-center">
-                <Upload className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                <input type="file" accept=".csv" required className="text-sm" />
-              </div>
-              
-              <div className="text-sm text-gray-600">
-                CSV Format: name, email, phone, category, plus_ones
-              </div>
-              
-              <div className="flex gap-3 pt-4">
-                <button type="button" onClick={() => setShowImportCSV(false)} className="flex-1 px-4 py-2 border rounded-lg">
-                  Cancel
-                </button>
-                <button type="submit" className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg">
-                  Import
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <ImportCSVModal
+          eventId={eventId}
+          onClose={() => setShowImportCSV(false)}
+          onImportComplete={() => {
+            setShowImportCSV(false);
+            loadEventData();
+          }}
+        />
       )}
 
       {/* Existing Modals */}
