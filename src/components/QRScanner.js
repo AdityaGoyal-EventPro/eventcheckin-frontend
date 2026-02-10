@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { X, Camera } from 'lucide-react';
 import { guestsAPI, eventsAPI } from '../api';
@@ -16,6 +16,10 @@ function QRScanner({ user }) {
   const [event, setEvent] = useState(null);
   const [isGlobalScan, setIsGlobalScan] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // ✅ NEW: Prevent duplicate scans
+  const processingRef = useRef(false);
+  const lastScanTimeRef = useRef(0);
 
   useEffect(() => {
     console.log('QRScanner mounted', { eventId, user: user?.name });
@@ -71,7 +75,7 @@ function QRScanner({ user }) {
       console.error('Error loading event:', error);
       setError('Failed to load event details. Scanner will still work.');
       // Set a fallback event so scanner can still work
-      setEvent({ name: 'Event', venue_name: user.venue_name || 'Venue' });
+      setEvent({ name: 'Event', venue_name: user?.venue_name || 'Venue' });
     }
   };
 
@@ -80,11 +84,25 @@ function QRScanner({ user }) {
       const html5QrCode = new Html5Qrcode("qr-reader");
       setScanner(html5QrCode);
 
+      // ✅ OPTIMIZED CONFIG for PAYTM-LIKE SPEED
       await html5QrCode.start(
-        { facingMode: "environment" },
+        { 
+          facingMode: "environment",
+          // ✅ Advanced camera constraints for better focus
+          advanced: [
+            { focusMode: "continuous" },
+            { focusDistance: 0.5 }
+          ]
+        },
         {
-          fps: 10,
-          qrbox: { width: 250, height: 250 }
+          fps: 30,  // ⬆️ INCREASED from 10 to 30 (3x faster!)
+          qrbox: { width: 250, height: 250 },
+          aspectRatio: 1.0,
+          disableFlip: true,  // ✅ Disable flip for speed
+          // ✅ Use native barcode detector if available
+          experimentalFeatures: {
+            useBarCodeDetectorIfSupported: true
+          }
         },
         handleScanSuccess,
         handleScanError
@@ -92,6 +110,7 @@ function QRScanner({ user }) {
       
       setScanning(true);
       setError('');
+      console.log('✅ Scanner started with optimized settings (30 FPS)');
     } catch (err) {
       console.error('Scanner error:', err);
       setError('Failed to start camera. Please check permissions.');
@@ -103,6 +122,7 @@ function QRScanner({ user }) {
       try {
         await scanner.stop();
         setScanning(false);
+        console.log('Scanner stopped');
       } catch (error) {
         console.error('Error stopping scanner:', error);
       }
@@ -110,9 +130,25 @@ function QRScanner({ user }) {
   };
 
   const handleScanSuccess = async (decodedText) => {
-    console.log('QR Code scanned:', decodedText);
+    const now = Date.now();
     
-    // Pause scanning temporarily to prevent multiple scans
+    // ✅ FAST DEBOUNCE: Prevent duplicate scans within 2 seconds (not 5)
+    if (now - lastScanTimeRef.current < 2000) {
+      console.log('⏭️ Skipping duplicate scan');
+      return;
+    }
+    
+    // ✅ Prevent concurrent processing
+    if (processingRef.current) {
+      console.log('⏭️ Already processing a scan');
+      return;
+    }
+
+    console.log('🎯 QR Code scanned:', decodedText);
+    lastScanTimeRef.current = now;
+    processingRef.current = true;
+    
+    // ✅ INSTANT PAUSE - Stop scanning immediately for fast feedback
     if (scanner && scanning) {
       await scanner.pause(true);
     }
@@ -129,6 +165,7 @@ function QRScanner({ user }) {
         setTimeout(() => {
           if (scanner) scanner.resume();
           setError('');
+          processingRef.current = false;
         }, 2000);
         return;
       }
@@ -139,61 +176,74 @@ function QRScanner({ user }) {
         setTimeout(() => {
           if (scanner) scanner.resume();
           setError('');
+          processingRef.current = false;
         }, 2000);
         return;
       }
 
       // Perform check-in (scanner still paused)
-      console.log('Checking in guest:', guestId);
+      console.log('✅ Checking in guest:', guestId);
       await guestsAPI.checkIn(guestId);
 
       // Get guest details - use QR event ID for global scan, eventId for event-specific
       const targetEventId = isGlobalScan ? qrEventId : eventId;
       
-      console.log('Fetching guest details from event:', targetEventId);
+      console.log('📋 Fetching guest details from event:', targetEventId);
       const response = await guestsAPI.getByEvent(targetEventId);
       const guest = response.data.guests.find(g => g.id === guestId);
 
       if (guest) {
         // For global scan, we need to load the actual event data (including wristband_color)
         if (isGlobalScan && qrEventId) {
-          console.log('Loading event data for wristband color:', qrEventId);
+          console.log('🎫 Loading event data for wristband color:', qrEventId);
           try {
             const eventResponse = await eventsAPI.getById(qrEventId);
             const actualEvent = eventResponse.data.event;
-            console.log('Event data loaded:', actualEvent);
+            console.log('✅ Event data loaded:', actualEvent);
             // Temporarily update the event state with the actual event
             setEvent(actualEvent);
           } catch (error) {
-            console.error('Failed to load event data:', error);
+            console.error('⚠️ Failed to load event data:', error);
             // Continue with guest check-in even if event data fails
           }
         }
         
+        console.log('🎉 Check-in successful:', guest.name);
         setCheckedInGuest(guest);
         setShowSuccess(true);
+        processingRef.current = false;
         // Scanner will resume when success dialog closes
       } else {
         setError('Guest checked in but details not found');
         setTimeout(() => {
           if (scanner) scanner.resume();
           setError('');
+          processingRef.current = false;
         }, 2000);
       }
 
     } catch (error) {
-      console.error('Check-in error:', error);
+      console.error('❌ Check-in error:', error);
       setError(error.response?.data?.error || 'Check-in failed. Please try again.');
       // Resume scanner after error
       setTimeout(() => {
         if (scanner) scanner.resume();
         setError('');
+        processingRef.current = false;
       }, 3000);
     }
   };
 
   const handleScanError = (error) => {
-    // Ignore scan errors (happens when no QR in frame)
+    // ✅ Ignore common scanning errors (reduce console noise)
+    if (
+      error.includes('NotFoundException') ||
+      error.includes('No MultiFormat Readers')
+    ) {
+      return; // Normal "no QR found" state
+    }
+    // Only log unexpected errors
+    // console.warn('QR scan warning:', error);
   };
 
   const handleClose = async () => {
@@ -204,8 +254,10 @@ function QRScanner({ user }) {
   const handleSuccessClose = () => {
     setShowSuccess(false);
     setCheckedInGuest(null);
+    processingRef.current = false;
     // Resume scanner for next guest (don't restart, just resume)
     if (scanner) {
+      console.log('🔄 Resuming scanner for next guest');
       scanner.resume();
     }
   };
@@ -234,6 +286,13 @@ function QRScanner({ user }) {
             )}
           </div>
         )}
+        {/* ✅ NEW: Speed indicator */}
+        {scanning && (
+          <div className="mt-2 flex items-center gap-2">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            <span className="text-green-400 text-xs font-medium">⚡ Fast Mode (30 FPS)</span>
+          </div>
+        )}
       </div>
 
       {/* Loading State */}
@@ -247,61 +306,88 @@ function QRScanner({ user }) {
       ) : (
         <>
           {/* Scanner Area */}
-      <div className="flex-1 flex flex-col items-center justify-center p-4">
-        <div className="w-full max-w-md">
-          {/* QR Reader Container */}
-          <div 
-            id="qr-reader" 
-            className="rounded-lg overflow-hidden shadow-2xl mb-4"
-          ></div>
+          <div className="flex-1 flex flex-col items-center justify-center p-4">
+            <div className="w-full max-w-md">
+              {/* QR Reader Container */}
+              <div 
+                id="qr-reader" 
+                className="rounded-lg overflow-hidden shadow-2xl mb-4"
+                style={{ 
+                  border: scanning ? '4px solid #10b981' : '4px solid #4b5563',
+                  transition: 'border-color 0.3s'
+                }}
+              ></div>
 
-          {/* Error Message */}
-          {error && (
-            <div className="bg-red-500 text-white p-4 rounded-lg mb-4">
-              {error}
+              {/* Error Message */}
+              {error && (
+                <div className="bg-red-500 text-white p-4 rounded-lg mb-4 animate-shake">
+                  <p className="font-semibold">⚠️ {error}</p>
+                </div>
+              )}
+
+              {/* Control Buttons */}
+              <div className="space-y-3">
+                {!scanning ? (
+                  <button
+                    onClick={startScanner}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-6 rounded-lg flex items-center justify-center gap-2 transition shadow-lg"
+                  >
+                    <Camera className="w-6 h-6" />
+                    <span>Start Fast Scanning ⚡</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={stopScanner}
+                    className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 px-6 rounded-lg transition shadow-lg"
+                  >
+                    Stop Scanner
+                  </button>
+                )}
+
+                <button
+                  onClick={handleClose}
+                  className="w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-4 px-6 rounded-lg transition"
+                >
+                  Back to Event
+                </button>
+              </div>
+
+              {/* Instructions */}
+              <div className="mt-6 bg-gray-800 p-4 rounded-lg border border-gray-700">
+                <h3 className="text-white font-semibold mb-2 flex items-center gap-2">
+                  📋 Instructions:
+                </h3>
+                <ul className="text-gray-300 text-sm space-y-2">
+                  <li className="flex items-start gap-2">
+                    <span className="text-green-400 mt-0.5">✓</span>
+                    <span>Allow camera access when prompted</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-green-400 mt-0.5">✓</span>
+                    <span>Point camera at guest's QR code</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-green-400 mt-0.5">✓</span>
+                    <span>Scanner will detect instantly (like Paytm)</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-green-400 mt-0.5">✓</span>
+                    <span>Guest checked in automatically</span>
+                  </li>
+                </ul>
+              </div>
+
+              {/* ✅ NEW: Performance Tips */}
+              {scanning && (
+                <div className="mt-4 bg-blue-900 bg-opacity-30 border border-blue-700 p-3 rounded-lg">
+                  <p className="text-blue-300 text-xs font-medium">
+                    💡 Tip: Hold phone steady, ensure good lighting for fastest scans
+                  </p>
+                </div>
+              )}
             </div>
-          )}
-
-          {/* Control Buttons */}
-          <div className="space-y-3">
-            {!scanning ? (
-              <button
-                onClick={startScanner}
-                className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-6 rounded-lg flex items-center justify-center gap-2 transition"
-              >
-                <Camera className="w-6 h-6" />
-                Start Scanning
-              </button>
-            ) : (
-              <button
-                onClick={stopScanner}
-                className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 px-6 rounded-lg transition"
-              >
-                Stop Scanner
-              </button>
-            )}
-
-            <button
-              onClick={handleClose}
-              className="w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-4 px-6 rounded-lg transition"
-            >
-              Back to Event
-            </button>
           </div>
-
-          {/* Instructions */}
-          <div className="mt-6 bg-gray-800 p-4 rounded-lg">
-            <h3 className="text-white font-semibold mb-2">Instructions:</h3>
-            <ul className="text-gray-300 text-sm space-y-1">
-              <li>• Allow camera access when prompted</li>
-              <li>• Point camera at guest's QR code</li>
-              <li>• Hold steady until scan completes</li>
-              <li>• Guest will be checked in automatically</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-      </>
+        </>
       )}
 
       {/* Success Dialog */}
