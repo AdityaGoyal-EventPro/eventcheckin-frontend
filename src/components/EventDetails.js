@@ -415,18 +415,42 @@ function EventDetails({ user }) {
           onClose={() => setShowSendInvitations(false)}
           onSend={async (invitationData) => {
             try {
-              // ✅ UPDATED: Pass filter and guest_ids to API
-              await eventsAPI.sendInvitations(eventId, {
-                channels: invitationData.channels,
-                filter: invitationData.filter || 'all',
-                guest_ids: invitationData.guest_ids || []
+              console.log('Sending invitations with data:', invitationData);
+              
+              // ✅ FIXED: Direct API call with proper request format
+              const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+              const response = await fetch(`${API_URL}/api/invitations/send`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  event_id: eventId,
+                  channels: invitationData.channels,
+                  filter: invitationData.filter || 'all',
+                  guest_ids: invitationData.guest_ids || []
+                })
               });
+
+              if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to send invitations');
+              }
+
+              const result = await response.json();
+              console.log('Invitations sent successfully:', result);
+              
               setShowSendInvitations(false);
               loadEventData(); // Reload to show updated invitation status
-              alert('Invitations sent successfully!');
+              
+              // Show success message with details
+              const { email, sms } = result.results;
+              const successMsg = `Invitations sent successfully!\n\nEmail: ${email.sent} sent, ${email.failed} failed\nSMS: ${sms.sent} sent, ${sms.failed} failed`;
+              alert(successMsg);
+              
             } catch (error) {
               console.error('Send invitations error:', error);
-              alert('Failed to send invitations. Please try again.');
+              alert(`Failed to send invitations: ${error.message}`);
             }
           }}
         />
