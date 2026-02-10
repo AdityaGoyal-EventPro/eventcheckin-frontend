@@ -7,7 +7,8 @@ import VenueDashboard from './components/VenueDashboard';
 import QRScanner from './components/QRScanner';
 import AdminDashboard from './components/AdminDashboard';
 import PendingApproval from './components/PendingApproval';
-import ResetPassword from './components/ResetPassword';  // ✅ ADDED
+import GuestInvitePage from './components/GuestInvitePage';  // ✅ Already imported
+import ResetPassword from './components/ResetPassword';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -63,10 +64,16 @@ function App() {
           } 
         />
 
-        {/* ✅ ADDED: Reset Password Route (Public - No auth required) */}
+        {/* Reset Password Route (Public - No auth required) */}
         <Route 
           path="/reset-password" 
           element={<ResetPassword />} 
+        />
+
+        {/* ✅ ADD THIS: Guest Invitation Route (Public - No auth required) */}
+        <Route 
+          path="/invite/:token" 
+          element={<GuestInvitePage />} 
         />
 
         {/* Dashboard Route - Role-based redirect */}
