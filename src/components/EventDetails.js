@@ -9,7 +9,8 @@ import EditGuestModal from './EditGuestModal';
 import CheckInSuccessDialog from './CheckInSuccessDialog';
 import CSVImport from './CSVImport';
 import AddGuestModal from './AddGuestModal';
-import InvitationStatusBadge from './InvitationStatusBadge';  // ✅ ADDED FOR INVITATION TRACKING
+import InvitationStatusBadge from './InvitationStatusBadge';
+import PhoneContactPicker from './PhoneContactPicker';  // ✅ ADDED FOR BULK CONTACT IMPORT
 
 function EventDetails({ user }) {
   const { id: eventId } = useParams();
@@ -273,6 +274,12 @@ function EventDetails({ user }) {
               <Upload className="w-5 h-5 text-indigo-600" />
               <span className="font-medium">Import CSV</span>
             </button>
+
+            {/* ✅ ADDED: Bulk import from phone contacts */}
+            <PhoneContactPicker 
+              eventId={eventId}
+              onSuccess={loadEventData}
+            />
 
             <button
               onClick={() => setShowSendInvitations(true)}
