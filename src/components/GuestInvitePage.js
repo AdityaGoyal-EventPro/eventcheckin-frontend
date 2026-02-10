@@ -1,108 +1,109 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { Calendar, MapPin, Clock, Users, Download, Share2, CheckCircle, AlertCircle, Loader } from 'lucide-react';
-import QRCode from 'qrcode.react';
-import axios from 'axios';
-
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+import { Calendar, MapPin, Clock, Users, Download, Share2, QrCode as QrCodeIcon } from 'lucide-react';
+import QRCode from 'qrcode';
 
 function GuestInvitePage() {
   const { token } = useParams();
-  
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [invitation, setInvitation] = useState(null);
-  const [downloadSuccess, setDownloadSuccess] = useState(false);
+  const [invitationData, setInvitationData] = useState(null);
+  const [qrCodeUrl, setQrCodeUrl] = useState(null);
+  const [loadingQR, setLoadingQR] = useState(false);
+  const [showQR, setShowQR] = useState(false);  // ✅ NEW: Don't load QR immediately
 
   useEffect(() => {
-    loadInvitation();
-  }, [token]);
-
-  const loadInvitation = async () => {
-    try {
-      setLoading(true);
-      setError('');
-      const response = await axios.get(`${API_URL}/api/invites/guest/${token}`);
-      setInvitation(response.data);
-      setLoading(false);
-    } catch (err) {
-      console.error('Error loading invitation:', err);
-      setError(err.response?.data?.error || 'Invalid or expired invitation link');
-      setLoading(false);
-    }
-  };
-
-  const downloadQR = () => {
-    try {
-      const canvas = document.getElementById('invitation-qr-code');
-      if (!canvas) return;
-
-      const pngUrl = canvas
-        .toDataURL('image/png')
-        .replace('image/png', 'image/octet-stream');
-      
-      const downloadLink = document.createElement('a');
-      downloadLink.href = pngUrl;
-      downloadLink.download = `${invitation.guest.name.replace(/\s+/g, '-')}-Event-QR.png`;
-      document.body.appendChild(downloadLink);
-      downloadLink.click();
-      document.body.removeChild(downloadLink);
-      
-      setDownloadSuccess(true);
-      setTimeout(() => setDownloadSuccess(false), 3000);
-    } catch (err) {
-      console.error('Error downloading QR:', err);
-      alert('Failed to download QR code');
-    }
-  };
-
-  const addToCalendar = () => {
-    const { event } = invitation;
-    
-    // Create .ics file content
-    const eventDate = new Date(event.date);
-    const startTime = event.time_start || '00:00';
-    const endTime = event.time_end || '23:59';
-    
-    // Format: YYYYMMDDTHHMMSS
-    const formatDateTime = (date, time) => {
-      const [hours, minutes] = time.split(':');
-      const d = new Date(date);
-      d.setHours(parseInt(hours), parseInt(minutes), 0);
-      return d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    const loadInvitation = async () => {
+      try {
+        setLoading(true);
+        setError('');
+        
+        console.log('Loading invitation for token:', token);
+        
+        // ✅ Add timeout for mobile networks
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        
+        const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+        const response = await fetch(`${API_URL}/api/invites/guest/${token}`, {
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to load invitation');
+        }
+        
+        const data = await response.json();
+        setInvitationData(data);
+        
+        // ✅ DON'T generate QR code immediately - wait for user to request it
+        
+      } catch (error) {
+        console.error('Failed to load invitation:', error);
+        
+        if (error.name === 'AbortError') {
+          setError('Request timed out. Please check your internet connection and try again.');
+        } else {
+          setError(error.message || 'Invalid or expired invitation link');
+        }
+      } finally {
+        setLoading(false);
+      }
     };
     
-    const dtStart = formatDateTime(eventDate, startTime);
-    const dtEnd = formatDateTime(eventDate, endTime);
-    
-    const icsContent = [
-      'BEGIN:VCALENDAR',
-      'VERSION:2.0',
-      'BEGIN:VEVENT',
-      `DTSTART:${dtStart}`,
-      `DTEND:${dtEnd}`,
-      `SUMMARY:${event.name}`,
-      `LOCATION:${event.venue_name}`,
-      `DESCRIPTION:You're invited to ${event.name}`,
-      'END:VEVENT',
-      'END:VCALENDAR'
-    ].join('\r\n');
-    
-    const blob = new Blob([icsContent], { type: 'text/calendar' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${event.name.replace(/\s+/g, '-')}.ics`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    if (token) {
+      loadInvitation();
+    }
+  }, [token]);
+
+  // ✅ NEW: Generate QR code ONLY when user clicks "Show QR"
+  const handleShowQR = async () => {
+    if (qrCodeUrl) {
+      // Already generated, just show it
+      setShowQR(true);
+      return;
+    }
+
+    try {
+      setLoadingQR(true);
+      
+      // Generate QR code
+      const qrData = invitationData.guest.qr_code;
+      const url = await QRCode.toDataURL(qrData, {
+        width: 256,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        }
+      });
+      
+      setQrCodeUrl(url);
+      setShowQR(true);
+    } catch (error) {
+      console.error('Failed to generate QR code:', error);
+      alert('Failed to generate QR code. Please try again.');
+    } finally {
+      setLoadingQR(false);
+    }
   };
 
-  const shareInvitation = async () => {
+  const handleDownloadQR = () => {
+    if (!qrCodeUrl) return;
+    
+    const link = document.createElement('a');
+    link.download = `${invitationData.guest.name}-qr-code.png`;
+    link.href = qrCodeUrl;
+    link.click();
+  };
+
+  const handleShare = async () => {
     const shareData = {
-      title: invitation.event.name,
-      text: `You're invited to ${invitation.event.name}!`,
+      title: `Invitation - ${invitationData.event.name}`,
+      text: `You're invited to ${invitationData.event.name}!`,
       url: window.location.href
     };
 
@@ -110,204 +111,235 @@ function GuestInvitePage() {
       if (navigator.share) {
         await navigator.share(shareData);
       } else {
-        // Fallback: copy link to clipboard
         await navigator.clipboard.writeText(window.location.href);
         alert('Link copied to clipboard!');
       }
-    } catch (err) {
-      console.error('Error sharing:', err);
+    } catch (error) {
+      console.error('Share failed:', error);
     }
   };
 
-  // Loading state
+  const handleAddToCalendar = () => {
+    const { event } = invitationData;
+    const eventDate = new Date(event.date);
+    const endDate = new Date(eventDate.getTime() + 3 * 60 * 60 * 1000); // 3 hours
+
+    const formatDate = (date) => {
+      return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    };
+
+    const icsContent = `BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+DTSTART:${formatDate(eventDate)}
+DTEND:${formatDate(endDate)}
+SUMMARY:${event.name}
+DESCRIPTION:${event.description || ''}
+LOCATION:${event.venue || ''}
+END:VEVENT
+END:VCALENDAR`;
+
+    const blob = new Blob([icsContent], { type: 'text/calendar' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${event.name}.ics`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-600 via-indigo-600 to-blue-600 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl p-8 text-center">
-          <Loader className="w-12 h-12 text-indigo-600 animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">Loading your invitation...</p>
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 text-lg">Loading your invitation...</p>
         </div>
       </div>
     );
   }
 
-  // Error state
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-600 via-indigo-600 to-blue-600 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center">
+      <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-orange-50 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center">
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <AlertCircle className="w-8 h-8 text-red-600" />
+            <span className="text-4xl">❌</span>
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Invalid Invitation</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Oops!</h2>
           <p className="text-gray-600 mb-6">{error}</p>
-          <p className="text-sm text-gray-500">
-            Please check your invitation link or contact the event host.
-          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-6 py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition"
+          >
+            Try Again
+          </button>
         </div>
       </div>
     );
   }
 
-  const { guest, event } = invitation;
+  if (!invitationData) {
+    return null;
+  }
 
-  // Format date
-  const eventDate = new Date(event.date);
-  const formattedDate = eventDate.toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric'
-  });
+  const { guest, event } = invitationData;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-600 via-indigo-600 to-blue-600 py-8 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 py-8 px-4">
       <div className="max-w-2xl mx-auto">
-        {/* Main Card */}
-        <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
-          {/* Header */}
-          <div className="bg-gradient-to-r from-purple-600 to-indigo-600 p-8 text-center">
-            <h1 className="text-4xl font-bold text-white mb-2">🎉</h1>
-            <h2 className="text-2xl font-bold text-white">You're Invited!</h2>
+        {/* Header Card */}
+        <div className="bg-white rounded-2xl shadow-xl overflow-hidden mb-6">
+          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-8 text-white text-center">
+            <h1 className="text-3xl font-bold mb-2">You're Invited! 🎉</h1>
+            <p className="text-lg opacity-90">{event.name}</p>
           </div>
 
-          {/* Event Details */}
           <div className="p-8">
-            <h3 className="text-3xl font-bold text-gray-900 mb-6 text-center">
-              {event.name}
-            </h3>
-
             {/* Guest Info */}
-            <div className="bg-indigo-50 border-l-4 border-indigo-600 p-4 mb-6">
-              <div className="flex items-center gap-2 mb-2">
-                <Users className="w-5 h-5 text-indigo-600" />
-                <span className="font-semibold text-gray-900">Guest Details</span>
-              </div>
-              <p className="text-gray-700">
-                <strong>{guest.name}</strong>
-                {guest.category && (
-                  <span className="ml-2 px-2 py-1 bg-indigo-100 text-indigo-800 text-xs rounded-full">
-                    {guest.category}
-                  </span>
-                )}
-              </p>
+            <div className="mb-8 text-center">
+              <p className="text-gray-600 mb-2">Invitation for:</p>
+              <p className="text-2xl font-bold text-gray-900">{guest.name}</p>
               {guest.plus_ones > 0 && (
-                <p className="text-sm text-gray-600 mt-1">
-                  Plus {guest.plus_ones} guest{guest.plus_ones > 1 ? 's' : ''}
+                <p className="text-sm text-indigo-600 mt-2 flex items-center justify-center gap-1">
+                  <Users className="w-4 h-4" />
+                  <span>+{guest.plus_ones} guest{guest.plus_ones !== 1 ? 's' : ''}</span>
                 </p>
+              )}
+              {guest.category && (
+                <span className={`inline-block mt-2 px-3 py-1 rounded-full text-sm font-semibold ${
+                  guest.category === 'VIP' 
+                    ? 'bg-purple-100 text-purple-800' 
+                    : 'bg-gray-100 text-gray-800'
+                }`}>
+                  {guest.category}
+                </span>
               )}
             </div>
 
-            {/* Event Info */}
+            {/* Event Details */}
             <div className="space-y-4 mb-8">
-              <div className="flex items-start gap-3">
-                <Calendar className="w-5 h-5 text-gray-600 mt-1 flex-shrink-0" />
-                <div>
-                  <p className="font-semibold text-gray-900">Date</p>
-                  <p className="text-gray-600">{formattedDate}</p>
+              {event.date && (
+                <div className="flex items-start gap-3">
+                  <Calendar className="w-5 h-5 text-indigo-600 mt-1 flex-shrink-0" />
+                  <div>
+                    <p className="font-semibold text-gray-900">Date</p>
+                    <p className="text-gray-600">
+                      {new Date(event.date).toLocaleDateString('en-US', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      })}
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )}
 
-              <div className="flex items-start gap-3">
-                <Clock className="w-5 h-5 text-gray-600 mt-1 flex-shrink-0" />
-                <div>
-                  <p className="font-semibold text-gray-900">Time</p>
-                  <p className="text-gray-600">
-                    {event.time_start} {event.time_end && `- ${event.time_end}`}
-                  </p>
+              {event.time && (
+                <div className="flex items-start gap-3">
+                  <Clock className="w-5 h-5 text-indigo-600 mt-1 flex-shrink-0" />
+                  <div>
+                    <p className="font-semibold text-gray-900">Time</p>
+                    <p className="text-gray-600">{event.time}</p>
+                  </div>
                 </div>
-              </div>
+              )}
 
-              <div className="flex items-start gap-3">
-                <MapPin className="w-5 h-5 text-gray-600 mt-1 flex-shrink-0" />
-                <div>
-                  <p className="font-semibold text-gray-900">Venue</p>
-                  <p className="text-gray-600">{event.venue_name}</p>
+              {event.venue && (
+                <div className="flex items-start gap-3">
+                  <MapPin className="w-5 h-5 text-indigo-600 mt-1 flex-shrink-0" />
+                  <div>
+                    <p className="font-semibold text-gray-900">Venue</p>
+                    <p className="text-gray-600">{event.venue}</p>
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {event.description && (
+                <div className="bg-gray-50 rounded-lg p-4 mt-4">
+                  <p className="text-gray-700">{event.description}</p>
+                </div>
+              )}
             </div>
 
-            {/* Check-in Status */}
-            {guest.checked_in && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6 flex items-center gap-3">
-                <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0" />
-                <div>
-                  <p className="font-semibold text-green-900">Already Checked In</p>
-                  <p className="text-sm text-green-700">
-                    Checked in at {guest.checked_in_time}
-                  </p>
-                </div>
-              </div>
-            )}
+            {/* ✅ NEW: QR Code Section (Lazy Loaded) */}
+            <div className="border-t border-gray-200 pt-8">
+              <h3 className="text-lg font-bold text-gray-900 mb-4 text-center">
+                Your Entry QR Code
+              </h3>
 
-            {/* QR Code Section */}
-            <div className="text-center mb-6">
-              <h4 className="text-lg font-semibold text-gray-900 mb-4">
-                Your Entry Pass
-              </h4>
-              <div className="bg-white p-6 rounded-xl border-2 border-gray-200 inline-block">
-                <QRCode
-                  id="invitation-qr-code"
-                  value={guest.qr_code}
-                  size={256}
-                  level="H"
-                  includeMargin={true}
-                />
-              </div>
-              <p className="text-sm text-gray-500 mt-4">
-                Show this QR code at the entrance for check-in
-              </p>
+              {!showQR ? (
+                // ✅ Show button instead of QR code initially
+                <div className="text-center">
+                  <p className="text-sm text-gray-600 mb-4">
+                    Show your QR code at the venue entrance for quick check-in
+                  </p>
+                  <button
+                    onClick={handleShowQR}
+                    disabled={loadingQR}
+                    className="px-6 py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition flex items-center gap-2 mx-auto disabled:opacity-50"
+                  >
+                    <QrCodeIcon className="w-5 h-5" />
+                    <span>{loadingQR ? 'Generating...' : 'Show QR Code'}</span>
+                  </button>
+                </div>
+              ) : (
+                // Show QR code once generated
+                <div className="flex flex-col items-center">
+                  <div className="bg-white p-4 rounded-lg shadow-lg mb-4">
+                    <img
+                      src={qrCodeUrl}
+                      alt="QR Code"
+                      className="w-64 h-64"
+                    />
+                  </div>
+                  <p className="text-sm text-gray-600 text-center mb-4">
+                    Present this QR code at the venue entrance
+                  </p>
+                  <button
+                    onClick={handleDownloadQR}
+                    className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition flex items-center gap-2"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Download QR Code</span>
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Action Buttons */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-4 mt-8">
               <button
-                onClick={downloadQR}
-                className="flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition"
+                onClick={handleAddToCalendar}
+                className="px-4 py-3 bg-indigo-100 text-indigo-700 rounded-lg font-semibold hover:bg-indigo-200 transition flex items-center justify-center gap-2"
               >
-                <Download className="w-4 h-4" />
-                <span>Save QR</span>
-              </button>
-
-              <button
-                onClick={addToCalendar}
-                className="flex items-center justify-center gap-2 px-4 py-3 bg-white border-2 border-indigo-600 text-indigo-600 rounded-lg font-semibold hover:bg-indigo-50 transition"
-              >
-                <Calendar className="w-4 h-4" />
+                <Calendar className="w-5 h-5" />
                 <span>Add to Calendar</span>
               </button>
 
               <button
-                onClick={shareInvitation}
-                className="flex items-center justify-center gap-2 px-4 py-3 bg-white border-2 border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition"
+                onClick={handleShare}
+                className="px-4 py-3 bg-purple-100 text-purple-700 rounded-lg font-semibold hover:bg-purple-200 transition flex items-center justify-center gap-2"
               >
-                <Share2 className="w-4 h-4" />
+                <Share2 className="w-5 h-5" />
                 <span>Share</span>
               </button>
             </div>
 
-            {/* Download Success Message */}
-            {downloadSuccess && (
-              <div className="mt-4 bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-2 justify-center">
-                <CheckCircle className="w-5 h-5 text-green-600" />
-                <span className="text-sm text-green-800">QR code saved successfully!</span>
+            {/* Status */}
+            {guest.checked_in && (
+              <div className="mt-8 bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                <p className="text-green-800 font-semibold">✓ You're checked in!</p>
+                <p className="text-green-600 text-sm">Welcome to the event!</p>
               </div>
             )}
           </div>
-
-          {/* Footer */}
-          <div className="bg-gray-50 px-8 py-4 text-center border-t border-gray-200">
-            <p className="text-sm text-gray-600">
-              Powered by Event Check-In Pro
-            </p>
-          </div>
         </div>
 
-        {/* Info Box */}
-        <div className="mt-6 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl p-4 text-white text-center">
-          <p className="text-sm">
-            💡 Tip: Save this page or take a screenshot of your QR code for offline access
-          </p>
+        {/* Footer */}
+        <div className="text-center text-sm text-gray-500">
+          <p>Powered by Event Check-In Pro</p>
         </div>
       </div>
     </div>
