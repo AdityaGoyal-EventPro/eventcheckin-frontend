@@ -17,7 +17,7 @@ function QRScanner({ user }) {
   const [isGlobalScan, setIsGlobalScan] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   
-  // ✅ NEW: Prevent duplicate scans
+  // ✅ Prevent duplicate scans
   const processingRef = useRef(false);
   const lastScanTimeRef = useRef(0);
 
@@ -84,26 +84,17 @@ function QRScanner({ user }) {
       const html5QrCode = new Html5Qrcode("qr-reader");
       setScanner(html5QrCode);
 
-      // ✅ OPTIMIZED CONFIG for PAYTM-LIKE SPEED
+      // ✅ FIXED: Simplified camera config (removed advanced constraints that were causing issues)
+      const config = {
+        fps: 30,  // ⬆️ INCREASED from 10 to 30 (3x faster!)
+        qrbox: { width: 250, height: 250 },
+        aspectRatio: 1.0,
+        disableFlip: true,  // ✅ Disable flip for speed
+      };
+
       await html5QrCode.start(
-        { 
-          facingMode: "environment",
-          // ✅ Advanced camera constraints for better focus
-          advanced: [
-            { focusMode: "continuous" },
-            { focusDistance: 0.5 }
-          ]
-        },
-        {
-          fps: 30,  // ⬆️ INCREASED from 10 to 30 (3x faster!)
-          qrbox: { width: 250, height: 250 },
-          aspectRatio: 1.0,
-          disableFlip: true,  // ✅ Disable flip for speed
-          // ✅ Use native barcode detector if available
-          experimentalFeatures: {
-            useBarCodeDetectorIfSupported: true
-          }
-        },
+        { facingMode: "environment" },  // ✅ Simple, reliable camera selection
+        config,
         handleScanSuccess,
         handleScanError
       );
@@ -112,8 +103,24 @@ function QRScanner({ user }) {
       setError('');
       console.log('✅ Scanner started with optimized settings (30 FPS)');
     } catch (err) {
-      console.error('Scanner error:', err);
-      setError('Failed to start camera. Please check permissions.');
+      console.error('❌ Scanner error:', err);
+      
+      // ✅ Better error messages
+      let errorMessage = 'Failed to start camera. ';
+      
+      if (err.name === 'NotAllowedError') {
+        errorMessage += 'Please allow camera access in your browser settings.';
+      } else if (err.name === 'NotFoundError') {
+        errorMessage += 'No camera found on this device.';
+      } else if (err.name === 'NotReadableError') {
+        errorMessage += 'Camera is being used by another application.';
+      } else if (err.name === 'OverconstrainedError') {
+        errorMessage += 'Camera constraints not supported.';
+      } else {
+        errorMessage += 'Please check camera permissions.';
+      }
+      
+      setError(errorMessage);
     }
   };
 
@@ -132,7 +139,7 @@ function QRScanner({ user }) {
   const handleScanSuccess = async (decodedText) => {
     const now = Date.now();
     
-    // ✅ FAST DEBOUNCE: Prevent duplicate scans within 2 seconds (not 5)
+    // ✅ FAST DEBOUNCE: Prevent duplicate scans within 2 seconds
     if (now - lastScanTimeRef.current < 2000) {
       console.log('⏭️ Skipping duplicate scan');
       return;
@@ -242,8 +249,6 @@ function QRScanner({ user }) {
     ) {
       return; // Normal "no QR found" state
     }
-    // Only log unexpected errors
-    // console.warn('QR scan warning:', error);
   };
 
   const handleClose = async () => {
@@ -286,7 +291,7 @@ function QRScanner({ user }) {
             )}
           </div>
         )}
-        {/* ✅ NEW: Speed indicator */}
+        {/* ✅ Speed indicator */}
         {scanning && (
           <div className="mt-2 flex items-center gap-2">
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
@@ -320,8 +325,13 @@ function QRScanner({ user }) {
 
               {/* Error Message */}
               {error && (
-                <div className="bg-red-500 text-white p-4 rounded-lg mb-4 animate-shake">
+                <div className="bg-red-500 text-white p-4 rounded-lg mb-4">
                   <p className="font-semibold">⚠️ {error}</p>
+                  {error.includes('camera access') && (
+                    <p className="text-sm mt-2">
+                      💡 Tip: Check browser address bar for camera permission settings
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -355,29 +365,29 @@ function QRScanner({ user }) {
               {/* Instructions */}
               <div className="mt-6 bg-gray-800 p-4 rounded-lg border border-gray-700">
                 <h3 className="text-white font-semibold mb-2 flex items-center gap-2">
-                  📋 Instructions:
+                  📋 Quick Setup:
                 </h3>
                 <ul className="text-gray-300 text-sm space-y-2">
                   <li className="flex items-start gap-2">
-                    <span className="text-green-400 mt-0.5">✓</span>
+                    <span className="text-green-400 mt-0.5">1.</span>
+                    <span>Click "Start Fast Scanning ⚡" above</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-green-400 mt-0.5">2.</span>
                     <span>Allow camera access when prompted</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="text-green-400 mt-0.5">✓</span>
+                    <span className="text-green-400 mt-0.5">3.</span>
                     <span>Point camera at guest's QR code</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="text-green-400 mt-0.5">✓</span>
-                    <span>Scanner will detect instantly (like Paytm)</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-green-400 mt-0.5">✓</span>
-                    <span>Guest checked in automatically</span>
+                    <span className="text-green-400 mt-0.5">4.</span>
+                    <span>Scanner detects instantly ⚡</span>
                   </li>
                 </ul>
               </div>
 
-              {/* ✅ NEW: Performance Tips */}
+              {/* Performance Tips */}
               {scanning && (
                 <div className="mt-4 bg-blue-900 bg-opacity-30 border border-blue-700 p-3 rounded-lg">
                   <p className="text-blue-300 text-xs font-medium">
