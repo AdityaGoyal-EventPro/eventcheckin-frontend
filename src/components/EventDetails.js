@@ -8,7 +8,8 @@ import WalkInModal from './WalkInModal';
 import EditGuestModal from './EditGuestModal';
 import CheckInSuccessDialog from './CheckInSuccessDialog';
 import CSVImport from './CSVImport';
-import AddGuestModal from './AddGuestModal';  // ✅ ADDED THIS LINE
+import AddGuestModal from './AddGuestModal';
+import InvitationStatusBadge from './InvitationStatusBadge';  // ✅ ADDED FOR INVITATION TRACKING
 
 function EventDetails({ user }) {
   const { id: eventId } = useParams();
@@ -148,6 +149,11 @@ function EventDetails({ user }) {
   const pendingCount = totalGuests - checkedInCount;
   const walkInCount = guests.filter(g => g.is_walk_in).length;
   const vipCount = guests.filter(g => g.category === 'VIP').length;
+  
+  // ✅ ADDED: Invitation tracking stats
+  const invitedCount = guests.filter(g => g.invitation_sent).length;
+  const notInvitedCount = totalGuests - invitedCount;
+  const openedCount = guests.filter(g => g.invitation_opened).length;
 
   if (loading && !event) {
     return (
@@ -211,7 +217,7 @@ function EventDetails({ user }) {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-8">
           <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
             <div className="text-3xl font-bold text-gray-900">{totalGuests}</div>
             <div className="text-sm text-gray-600">Total</div>
@@ -235,6 +241,17 @@ function EventDetails({ user }) {
           <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
             <div className="text-3xl font-bold text-amber-600">{walkInCount}</div>
             <div className="text-sm text-gray-600">Walk-Ins</div>
+          </div>
+          
+          {/* ✅ ADDED: Invitation Stats */}
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+            <div className="text-3xl font-bold text-indigo-600">{invitedCount}</div>
+            <div className="text-sm text-gray-600">Invited</div>
+          </div>
+          
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+            <div className="text-3xl font-bold text-blue-600">{openedCount}</div>
+            <div className="text-sm text-gray-600">Opened</div>
           </div>
         </div>
 
@@ -360,6 +377,7 @@ function EventDetails({ user }) {
               onCheckIn={handleManualCheckIn}
               onEdit={isHost ? handleEditGuest : null}
               onDelete={isHost ? handleDeleteGuest : null}
+              showInvitationStatus={true}  // ✅ ADDED: Show invitation badges
             />
           )}
         </div>
@@ -392,10 +410,25 @@ function EventDetails({ user }) {
       {/* Existing Modals */}
       {showSendInvitations && (
         <SendInvitationsModal
-          eventId={eventId}
           event={event}
           guests={guests}
           onClose={() => setShowSendInvitations(false)}
+          onSend={async (invitationData) => {
+            try {
+              // ✅ UPDATED: Pass filter and guest_ids to API
+              await eventsAPI.sendInvitations(eventId, {
+                channels: invitationData.channels,
+                filter: invitationData.filter || 'all',
+                guest_ids: invitationData.guest_ids || []
+              });
+              setShowSendInvitations(false);
+              loadEventData(); // Reload to show updated invitation status
+              alert('Invitations sent successfully!');
+            } catch (error) {
+              console.error('Send invitations error:', error);
+              alert('Failed to send invitations. Please try again.');
+            }
+          }}
         />
       )}
 
