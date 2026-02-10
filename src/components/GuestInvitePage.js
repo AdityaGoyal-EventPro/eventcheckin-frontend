@@ -70,8 +70,8 @@ function GuestInvitePage() {
     try {
       setLoadingQR(true);
       
-      // Generate QR code
-      const qrData = invitationData.guest.qr_code;
+      // ✅ Generate QR code from the simple check-in token
+      const qrData = invitationData.guest.check_in_token;
       const url = await QRCode.toDataURL(qrData, {
         width: 256,
         margin: 2,
