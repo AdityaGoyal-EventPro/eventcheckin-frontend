@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Camera, Search, RefreshCw, Check, X, Plus, UserPlus, Edit2, Trash2, Upload, Mail, QrCode } from 'lucide-react';
+import { ArrowLeft, Camera, Search, RefreshCw, X, Plus, UserPlus, Upload, Mail } from 'lucide-react';
 import { eventsAPI, guestsAPI } from '../api';
 import GuestListMobile from './GuestListMobile';
 import SendInvitationsModal from './SendInvitationsModal';
@@ -10,7 +10,7 @@ import CheckInSuccessDialog from './CheckInSuccessDialog';
 import CSVImport from './CSVImport';
 import AddGuestModal from './AddGuestModal';
 import InvitationStatusBadge from './InvitationStatusBadge';
-import PhoneContactPicker from './PhoneContactPicker';  // ✅ ADDED FOR BULK CONTACT IMPORT
+import PhoneContactPicker from './PhoneContactPicker';
 
 function EventDetails({ user }) {
   const { id: eventId } = useParams();
@@ -20,7 +20,6 @@ function EventDetails({ user }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   
-  // Modal states
   const [showAddGuest, setShowAddGuest] = useState(false);
   const [showImportCSV, setShowImportCSV] = useState(false);
   const [showSendInvitations, setShowSendInvitations] = useState(false);
@@ -29,34 +28,25 @@ function EventDetails({ user }) {
   const [selectedGuest, setSelectedGuest] = useState(null);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [checkedInGuest, setCheckedInGuest] = useState(null);
-  const [showManualSearch, setShowManualSearch] = useState(false);
   
-  // Search and filter states
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [checkingIn, setCheckingIn] = useState(null);
 
-  // Check if user is host (can edit) or venue (view-only)
   const isHost = user?.role === 'host' || user?.role === 'admin';
   const isVenue = user?.role === 'venue';
 
   useEffect(() => {
     loadEventData();
-    
-    const interval = setInterval(() => {
-      loadEventData(true);
-    }, 10000);
-    
+    const interval = setInterval(() => loadEventData(true), 10000);
     return () => clearInterval(interval);
   }, [eventId]);
 
   const loadEventData = async (silent = false) => {
     try {
       if (!silent) setLoading(true);
-      
       const eventResponse = await eventsAPI.getById(eventId);
       setEvent(eventResponse.data.event);
-
       const guestsResponse = await guestsAPI.getByEvent(eventId);
       setGuests(guestsResponse.data.guests || []);
     } catch (error) {
@@ -67,35 +57,24 @@ function EventDetails({ user }) {
     }
   };
 
-  const handleRefresh = () => {
-    setRefreshing(true);
-    loadEventData();
-  };
+  const handleRefresh = () => { setRefreshing(true); loadEventData(); };
 
   const handleManualCheckIn = async (guest) => {
-    if (!window.confirm(`Check in ${guest.name}?`)) {
-      return;
-    }
-
+    if (!window.confirm(`Check in ${guest.name}?`)) return;
     setCheckingIn(guest.id);
-    
     try {
       await guestsAPI.checkIn(guest.id);
       setCheckedInGuest(guest);
       setShowSuccessDialog(true);
       loadEventData();
     } catch (error) {
-      console.error('Error checking in guest:', error);
-      alert(`Failed to check in ${guest.name}. Please try again.`);
+      alert(`Failed to check in ${guest.name}.`);
     } finally {
       setCheckingIn(null);
     }
   };
 
-  const handleEditGuest = (guest) => {
-    setSelectedGuest(guest);
-    setShowEditGuest(true);
-  };
+  const handleEditGuest = (guest) => { setSelectedGuest(guest); setShowEditGuest(true); };
 
   const handleSaveGuest = async (guestId, updatedData) => {
     try {
@@ -104,35 +83,19 @@ function EventDetails({ user }) {
       setSelectedGuest(null);
       loadEventData();
     } catch (error) {
-      console.error('Update guest error:', error);
-      throw error; // Re-throw so EditGuestModal can show error
+      throw error;
     }
   };
 
   const handleDeleteGuest = async (guestId) => {
-    if (!window.confirm('Remove this guest from the list?')) {
-      return;
-    }
-
-    try {
-      await guestsAPI.delete(guestId);
-      loadEventData();
-    } catch (error) {
-      alert('Failed to delete guest');
-    }
+    if (!window.confirm('Remove this guest?')) return;
+    try { await guestsAPI.delete(guestId); loadEventData(); } catch { alert('Failed to delete guest'); }
   };
-
-  // ❌ REMOVED: handleAddGuest function (not needed with component)
 
   const getFilteredGuests = () => {
     let filtered = guests;
-
-    if (statusFilter === 'checked-in') {
-      filtered = filtered.filter(g => g.checked_in);
-    } else if (statusFilter === 'pending') {
-      filtered = filtered.filter(g => !g.checked_in);
-    }
-
+    if (statusFilter === 'checked-in') filtered = filtered.filter(g => g.checked_in);
+    else if (statusFilter === 'pending') filtered = filtered.filter(g => !g.checked_in);
     if (searchTerm) {
       filtered = filtered.filter(g =>
         g.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -140,7 +103,6 @@ function EventDetails({ user }) {
         (g.phone && g.phone.includes(searchTerm))
       );
     }
-
     return filtered;
   };
 
@@ -150,185 +112,146 @@ function EventDetails({ user }) {
   const pendingCount = totalGuests - checkedInCount;
   const walkInCount = guests.filter(g => g.is_walk_in).length;
   const vipCount = guests.filter(g => g.category === 'VIP').length;
-  
-  // ✅ ADDED: Invitation tracking stats
   const invitedCount = guests.filter(g => g.invitation_sent).length;
-  const notInvitedCount = totalGuests - invitedCount;
   const openedCount = guests.filter(g => g.invitation_opened).length;
+
+  const progress = Math.min((checkedInCount / (totalGuests || 1)) * 100, 100);
 
   if (loading && !event) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading event...</p>
+          <div className="w-12 h-12 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-gray-500 text-sm">Loading event...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 pb-4">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between mb-4">
+      <div className="bg-white border-b border-gray-100 sticky top-0 z-20 safe-top">
+        <div className="max-w-5xl mx-auto px-4 py-3">
+          {/* Top Row: Back + Actions */}
+          <div className="flex items-center justify-between mb-2">
             <button
               onClick={() => navigate(-1)}
-              className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
+              className="flex items-center gap-1.5 text-gray-600 hover:text-gray-900 -ml-1 py-1"
             >
               <ArrowLeft className="w-5 h-5" />
-              <span>Back</span>
+              <span className="text-sm font-medium hidden sm:inline">Back</span>
             </button>
             
             <div className="flex items-center gap-2">
-              <button
-                onClick={handleRefresh}
-                disabled={refreshing}
-                className="p-2 hover:bg-gray-100 rounded-lg transition"
-                title="Refresh"
-              >
-                <RefreshCw className={`w-5 h-5 text-gray-600 ${refreshing ? 'animate-spin' : ''}`} />
+              <button onClick={handleRefresh} disabled={refreshing} className="p-2 hover:bg-gray-100 rounded-lg transition">
+                <RefreshCw className={`w-4.5 h-4.5 text-gray-500 ${refreshing ? 'animate-spin' : ''}`} />
               </button>
-              
               <button
                 onClick={() => navigate(`/scan/${eventId}`)}
-                className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition"
+                className="flex items-center gap-1.5 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 active:scale-[0.97] transition text-sm font-semibold"
               >
-                <Camera className="w-5 h-5" />
-                <span>Scan QR</span>
+                <Camera className="w-4 h-4" />
+                <span>Scan</span>
               </button>
             </div>
           </div>
 
+          {/* Event Info */}
           {event && (
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">{event.name}</h1>
-              <div className="flex flex-wrap gap-4 text-sm text-gray-600">
-                <span>📅 {event.date}</span>
-                <span>🕐 {event.time_start}{event.time_end ? ` - ${event.time_end}` : ''}</span>
-                <span>📍 {event.venue_name}</span>
-                {event.host_name && <span>👤 {event.host_name}</span>}
+              <h1 className="text-lg font-bold text-gray-900 line-clamp-1">{event.name}</h1>
+              <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-500 mt-1">
+                <span>{event.date}</span>
+                <span>{event.time_start}{event.time_end ? ` - ${event.time_end}` : ''}</span>
+                {event.venue_name && <span>{event.venue_name}</span>}
               </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-8">
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-            <div className="text-3xl font-bold text-gray-900">{totalGuests}</div>
-            <div className="text-sm text-gray-600">Total</div>
-          </div>
-          
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-            <div className="text-3xl font-bold text-green-600">{checkedInCount}</div>
-            <div className="text-sm text-gray-600">Checked In</div>
-          </div>
-          
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-            <div className="text-3xl font-bold text-orange-600">{pendingCount}</div>
-            <div className="text-sm text-gray-600">Pending</div>
+      <div className="max-w-5xl mx-auto px-4 py-4">
+        {/* Stats — Horizontal scroll on mobile */}
+        <div className="-mx-4 px-4 mb-5">
+          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
+            {[
+              { label: 'Total', value: totalGuests, color: 'text-gray-900', bg: 'bg-white' },
+              { label: 'Checked In', value: checkedInCount, color: 'text-green-600', bg: 'bg-green-50' },
+              { label: 'Pending', value: pendingCount, color: 'text-amber-600', bg: 'bg-amber-50' },
+              { label: 'VIP', value: vipCount, color: 'text-purple-600', bg: 'bg-purple-50' },
+              { label: 'Walk-In', value: walkInCount, color: 'text-orange-600', bg: 'bg-orange-50' },
+              { label: 'Invited', value: invitedCount, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+              { label: 'Opened', value: openedCount, color: 'text-blue-600', bg: 'bg-blue-50' },
+            ].map(({ label, value, color, bg }) => (
+              <div
+                key={label}
+                className={`${bg} rounded-xl px-4 py-3 border border-gray-100 flex-shrink-0 min-w-[90px] text-center`}
+              >
+                <div className={`text-xl font-bold ${color} animate-countUp`}>{value}</div>
+                <div className="text-[10px] text-gray-500 uppercase tracking-wider mt-0.5">{label}</div>
+              </div>
+            ))}
           </div>
 
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-            <div className="text-3xl font-bold text-purple-600">{vipCount}</div>
-            <div className="text-sm text-gray-600">VIP</div>
-          </div>
-
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-            <div className="text-3xl font-bold text-amber-600">{walkInCount}</div>
-            <div className="text-sm text-gray-600">Walk-Ins</div>
-          </div>
-          
-          {/* ✅ ADDED: Invitation Stats */}
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-            <div className="text-3xl font-bold text-indigo-600">{invitedCount}</div>
-            <div className="text-sm text-gray-600">Invited</div>
-          </div>
-          
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-            <div className="text-3xl font-bold text-blue-600">{openedCount}</div>
-            <div className="text-sm text-gray-600">Opened</div>
+          {/* Overall Progress */}
+          <div className="flex items-center gap-3 mt-3">
+            <div className="flex-1 bg-gray-100 rounded-full h-2">
+              <div className="bg-indigo-600 h-2 rounded-full transition-all duration-700" style={{ width: `${progress}%` }} />
+            </div>
+            <span className="text-sm font-semibold text-indigo-600 flex-shrink-0">{Math.round(progress)}%</span>
           </div>
         </div>
 
-        {/* Action Buttons - Host gets all 4, Venue gets Walk-In only */}
+        {/* Action Buttons */}
         {isHost ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <button
-              onClick={() => setShowAddGuest(true)}
-              className="flex items-center justify-center gap-2 bg-white border-2 border-gray-200 hover:border-indigo-500 rounded-xl p-4 transition"
-            >
-              <Plus className="w-5 h-5 text-indigo-600" />
-              <span className="font-medium">Add Guest</span>
-            </button>
-
-            <button
-              onClick={() => setShowImportCSV(true)}
-              className="flex items-center justify-center gap-2 bg-white border-2 border-gray-200 hover:border-indigo-500 rounded-xl p-4 transition"
-            >
-              <Upload className="w-5 h-5 text-indigo-600" />
-              <span className="font-medium">Import CSV</span>
-            </button>
-
-            {/* ✅ ADDED: Bulk import from phone contacts */}
-            <PhoneContactPicker 
-              eventId={eventId}
-              onSuccess={loadEventData}
-            />
-
-            <button
-              onClick={() => setShowSendInvitations(true)}
-              className="flex items-center justify-center gap-2 bg-white border-2 border-gray-200 hover:border-indigo-500 rounded-xl p-4 transition"
-            >
-              <Mail className="w-5 h-5 text-indigo-600" />
-              <span className="font-medium">Send Invites</span>
-            </button>
-
-            <button
-              onClick={() => setShowWalkIn(true)}
-              className="flex items-center justify-center gap-2 bg-white border-2 border-gray-200 hover:border-indigo-500 rounded-xl p-4 transition"
-            >
-              <UserPlus className="w-5 h-5 text-indigo-600" />
-              <span className="font-medium">Walk-In</span>
-            </button>
+          <div className="flex gap-2 overflow-x-auto pb-3 mb-4 -mx-4 px-4 scrollbar-none">
+            {[
+              { label: 'Add Guest', icon: Plus, onClick: () => setShowAddGuest(true) },
+              { label: 'Import CSV', icon: Upload, onClick: () => setShowImportCSV(true) },
+              { label: 'Send Invites', icon: Mail, onClick: () => setShowSendInvitations(true) },
+              { label: 'Walk-In', icon: UserPlus, onClick: () => setShowWalkIn(true) },
+            ].map(({ label, icon: Icon, onClick }) => (
+              <button
+                key={label}
+                onClick={onClick}
+                className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-xl hover:border-indigo-300 active:scale-[0.97] transition flex-shrink-0 text-sm font-medium text-gray-700"
+              >
+                <Icon className="w-4 h-4 text-indigo-600" />
+                <span>{label}</span>
+              </button>
+            ))}
+            {/* Phone Contact Picker */}
+            <div className="flex-shrink-0">
+              <PhoneContactPicker eventId={eventId} onSuccess={loadEventData} />
+            </div>
           </div>
         ) : isVenue && (
-          <div className="mb-8">
+          <div className="mb-5">
             <button
               onClick={() => setShowWalkIn(true)}
-              className="w-full md:w-auto flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-semibold px-6 py-4 rounded-xl hover:from-purple-700 hover:to-indigo-700 transition shadow-lg"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 bg-indigo-600 text-white font-semibold px-5 py-3 rounded-xl hover:bg-indigo-700 active:scale-[0.98] transition"
             >
-              <UserPlus className="w-6 h-6" />
-              <span>Register Walk-In Guest</span>
+              <UserPlus className="w-5 h-5" />
+              <span>Register Walk-In</span>
             </button>
-            <p className="text-sm text-gray-600 mt-2">
-              For guests not on the pre-registered list
-            </p>
           </div>
         )}
 
-        {/* Search and Filter Bar */}
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+        {/* Search & Filter */}
+        <div className="bg-white rounded-xl border border-gray-100 p-3 mb-4">
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search by name, email, or phone..."
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                placeholder="Search guests..."
+                className="w-full pl-9 pr-8 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm bg-gray-50"
               />
               {searchTerm && (
-                <button
-                  onClick={() => setSearchTerm('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded"
-                >
+                <button onClick={() => setSearchTerm('')} className="absolute right-2 top-1/2 -translate-y-1/2 p-1">
                   <X className="w-4 h-4 text-gray-400" />
                 </button>
               )}
@@ -337,45 +260,45 @@ function EventDetails({ user }) {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             >
-              <option value="all">All Guests ({totalGuests})</option>
-              <option value="checked-in">✅ Checked In ({checkedInCount})</option>
-              <option value="pending">⏳ Pending ({pendingCount})</option>
+              <option value="all">All ({totalGuests})</option>
+              <option value="checked-in">Checked In ({checkedInCount})</option>
+              <option value="pending">Pending ({pendingCount})</option>
             </select>
           </div>
           
           {(searchTerm || statusFilter !== 'all') && (
-            <div className="mt-3 text-sm text-gray-600">
-              Showing {filteredGuests.length} of {totalGuests} guests
+            <div className="mt-2 text-xs text-gray-500">
+              {filteredGuests.length} of {totalGuests} guests
               {searchTerm && ` matching "${searchTerm}"`}
             </div>
           )}
         </div>
 
-        {/* Guest List - Using existing GuestListMobile component */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="p-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">Guest List</h2>
+        {/* Guest List */}
+        <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+          <div className="px-4 py-3 border-b border-gray-50 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-gray-900">
+              Guest List
+            </h2>
+            <span className="text-xs text-gray-400">{filteredGuests.length} guests</span>
           </div>
 
           {filteredGuests.length === 0 ? (
-            <div className="p-12 text-center text-gray-500">
+            <div className="p-10 text-center">
               {searchTerm || statusFilter !== 'all' ? (
                 <>
-                  <p className="text-lg mb-2">No guests found</p>
+                  <p className="text-gray-500 text-sm mb-2">No guests found</p>
                   <button
-                    onClick={() => {
-                      setSearchTerm('');
-                      setStatusFilter('all');
-                    }}
-                    className="text-indigo-600 hover:text-indigo-700"
+                    onClick={() => { setSearchTerm(''); setStatusFilter('all'); }}
+                    className="text-indigo-600 text-sm font-medium"
                   >
                     Clear filters
                   </button>
                 </>
               ) : (
-                <p>No guests yet</p>
+                <p className="text-gray-400 text-sm">No guests added yet</p>
               )}
             </div>
           ) : (
@@ -384,37 +307,21 @@ function EventDetails({ user }) {
               onCheckIn={handleManualCheckIn}
               onEdit={isHost ? handleEditGuest : null}
               onDelete={isHost ? handleDeleteGuest : null}
-              showInvitationStatus={true}  // ✅ ADDED: Show invitation badges
+              showInvitationStatus={true}
             />
           )}
         </div>
       </div>
 
-      {/* ✅ REPLACED: Using AddGuestModal component instead of inline form */}
+      {/* Modals */}
       {showAddGuest && (
-        <AddGuestModal
-          eventId={eventId}
-          onClose={() => setShowAddGuest(false)}
-          onGuestAdded={() => {
-            setShowAddGuest(false);
-            loadEventData();
-          }}
-        />
+        <AddGuestModal eventId={eventId} onClose={() => setShowAddGuest(false)} onGuestAdded={() => { setShowAddGuest(false); loadEventData(); }} />
       )}
 
-      {/* Import CSV Modal */}
       {showImportCSV && (
-        <CSVImport
-          eventId={eventId}
-          onClose={() => setShowImportCSV(false)}
-          onImportComplete={() => {
-            setShowImportCSV(false);
-            loadEventData();
-          }}
-        />
+        <CSVImport eventId={eventId} onClose={() => setShowImportCSV(false)} onImportComplete={() => { setShowImportCSV(false); loadEventData(); }} />
       )}
 
-      {/* Existing Modals */}
       {showSendInvitations && (
         <SendInvitationsModal
           event={event}
@@ -422,15 +329,10 @@ function EventDetails({ user }) {
           onClose={() => setShowSendInvitations(false)}
           onSend={async (invitationData) => {
             try {
-              console.log('Sending invitations with data:', invitationData);
-              
-              // ✅ FIXED: Direct API call with proper request format
               const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
               const response = await fetch(`${API_URL}/api/invitations/send`, {
                 method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   event_id: eventId,
                   channels: invitationData.channels,
@@ -445,19 +347,12 @@ function EventDetails({ user }) {
               }
 
               const result = await response.json();
-              console.log('Invitations sent successfully:', result);
-              
               setShowSendInvitations(false);
-              loadEventData(); // Reload to show updated invitation status
-              
-              // Show success message with details
+              loadEventData();
               const { email, sms } = result.results;
-              const successMsg = `Invitations sent successfully!\n\nEmail: ${email.sent} sent, ${email.failed} failed\nSMS: ${sms.sent} sent, ${sms.failed} failed`;
-              alert(successMsg);
-              
+              alert(`Invitations sent!\n\nEmail: ${email.sent} sent, ${email.failed} failed\nSMS: ${sms.sent} sent, ${sms.failed} failed`);
             } catch (error) {
-              console.error('Send invitations error:', error);
-              alert(`Failed to send invitations: ${error.message}`);
+              alert(`Failed: ${error.message}`);
             }
           }}
         />
@@ -467,12 +362,7 @@ function EventDetails({ user }) {
         <WalkInModal
           eventId={eventId}
           onClose={() => setShowWalkIn(false)}
-          onWalkInAdded={(guest) => {
-            setShowWalkIn(false);
-            setCheckedInGuest(guest);
-            setShowSuccessDialog(true);
-            loadEventData();
-          }}
+          onWalkInAdded={(guest) => { setShowWalkIn(false); setCheckedInGuest(guest); setShowSuccessDialog(true); loadEventData(); }}
         />
       )}
 
@@ -480,15 +370,8 @@ function EventDetails({ user }) {
         <EditGuestModal
           guest={selectedGuest}
           onSave={handleSaveGuest}
-          onClose={() => {
-            setShowEditGuest(false);
-            setSelectedGuest(null);
-          }}
-          onGuestUpdated={() => {
-            setShowEditGuest(false);
-            setSelectedGuest(null);
-            loadEventData();
-          }}
+          onClose={() => { setShowEditGuest(false); setSelectedGuest(null); }}
+          onGuestUpdated={() => { setShowEditGuest(false); setSelectedGuest(null); loadEventData(); }}
         />
       )}
 
@@ -496,10 +379,7 @@ function EventDetails({ user }) {
         <CheckInSuccessDialog
           guest={checkedInGuest}
           event={event}
-          onClose={() => {
-            setShowSuccessDialog(false);
-            setCheckedInGuest(null);
-          }}
+          onClose={() => { setShowSuccessDialog(false); setCheckedInGuest(null); }}
         />
       )}
     </div>
