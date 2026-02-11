@@ -2,13 +2,150 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#000000" />
-    <meta name="description" content="Event Check-In Pro - Modern event management system" />
-    <title>Event Check-In Pro</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#4F46E5" />
+    <meta name="description" content="Check-In Pro — Event guest check-in & QR scanning for venues and hosts" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    
+    <!-- iOS PWA Support -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Check-In Pro" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    
+    <!-- Prevent phone number detection on iOS -->
+    <meta name="format-detection" content="telephone=no" />
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/icons/favicon.ico" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
+    
+    <title>Check-In Pro</title>
+
+    <style>
+      /* Install prompt banner styling (injected here so it shows before React loads) */
+      .pwa-install-banner {
+        display: none;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: linear-gradient(135deg, #4F46E5, #7C3AED);
+        color: white;
+        padding: 16px 20px;
+        padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+        z-index: 9999;
+        box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
+        animation: slideUpBanner 0.4s cubic-bezier(0.32, 0.72, 0, 1);
+      }
+      .pwa-install-banner.show { display: block; }
+      @keyframes slideUpBanner {
+        from { transform: translateY(100%); }
+        to { transform: translateY(0); }
+      }
+    </style>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
+
+    <!-- PWA Install Banner (shown before user adds to home screen) -->
+    <div id="pwa-install-banner" class="pwa-install-banner">
+      <div style="display:flex;align-items:center;gap:12px;max-width:480px;margin:0 auto;">
+        <img src="/icons/icon-192.png" alt="" style="width:48px;height:48px;border-radius:12px;flex-shrink:0;" />
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:700;font-size:15px;">Add Check-In Pro</div>
+          <div style="font-size:12px;opacity:0.85;margin-top:2px;">Install for quick access & offline mode</div>
+        </div>
+        <button id="pwa-install-btn" style="background:white;color:#4F46E5;border:none;padding:10px 20px;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;flex-shrink:0;">
+          Install
+        </button>
+        <button id="pwa-dismiss-btn" style="background:transparent;color:white;border:none;padding:8px;cursor:pointer;font-size:20px;line-height:1;opacity:0.7;flex-shrink:0;" aria-label="Close">
+          ✕
+        </button>
+      </div>
+    </div>
+
+    <script>
+      // ============================================
+      // SERVICE WORKER REGISTRATION
+      // ============================================
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker
+            .register('/service-worker.js')
+            .then((reg) => {
+              console.log('[PWA] Service Worker registered:', reg.scope);
+              
+              // Check for updates every 60 seconds
+              setInterval(() => reg.update(), 60000);
+              
+              // Notify user when update is available
+              reg.addEventListener('updatefound', () => {
+                const newWorker = reg.installing;
+                newWorker.addEventListener('statechange', () => {
+                  if (newWorker.state === 'activated' && navigator.serviceWorker.controller) {
+                    // New version available — show subtle update hint
+                    console.log('[PWA] New version available');
+                  }
+                });
+              });
+            })
+            .catch((err) => console.error('[PWA] SW registration failed:', err));
+        });
+      }
+
+      // ============================================
+      // INSTALL PROMPT (Android Chrome)
+      // ============================================
+      let deferredPrompt;
+      const banner = document.getElementById('pwa-install-banner');
+      const installBtn = document.getElementById('pwa-install-btn');
+      const dismissBtn = document.getElementById('pwa-dismiss-btn');
+
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        
+        // Don't show if user dismissed before
+        if (localStorage.getItem('pwa-dismissed')) return;
+        
+        // Show after 3 seconds (let the app load first)
+        setTimeout(() => {
+          banner.classList.add('show');
+        }, 3000);
+      });
+
+      installBtn.addEventListener('click', async () => {
+        if (!deferredPrompt) return;
+        banner.classList.remove('show');
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        console.log('[PWA] Install outcome:', outcome);
+        deferredPrompt = null;
+      });
+
+      dismissBtn.addEventListener('click', () => {
+        banner.classList.remove('show');
+        localStorage.setItem('pwa-dismissed', 'true');
+      });
+
+      // Hide banner if app is already installed
+      window.addEventListener('appinstalled', () => {
+        banner.classList.remove('show');
+        deferredPrompt = null;
+        console.log('[PWA] App installed successfully!');
+      });
+
+      // Detect if running as installed PWA
+      if (window.matchMedia('(display-mode: standalone)').matches) {
+        console.log('[PWA] Running as installed app');
+      }
+    </script>
   </body>
 </html>
