@@ -35,11 +35,36 @@ export const eventsAPI = {
   getById: (eventId) =>
     api.get(`/api/events/${eventId}`),
   
-  softDelete: (eventId, deletedBy) =>
-    api.patch(`/api/events/${eventId}/delete`, { deleted_by: deletedBy }),
+  // Smart delete — handles all 3 scenarios
+  smartDelete: (eventId, deletedBy) =>
+    api.post(`/api/events/${eventId}/smart-delete`, { deleted_by: deletedBy }),
   
+  // Restore from archive
+  restore: (eventId) =>
+    api.patch(`/api/events/${eventId}/restore`),
+  
+  // Permanent delete (keeps guest data)
   hardDelete: (eventId) =>
     api.delete(`/api/events/${eventId}`),
+  
+  // Archived events
+  getArchivedByHost: (hostId) =>
+    api.get(`/api/events/host/${hostId}/archived`),
+  
+  getArchivedByVenue: (venueId) =>
+    api.get(`/api/events/venue/${venueId}/archived`),
+  
+  // Venue: events by specific date
+  getByVenueDate: (venueId, date) =>
+    api.get(`/api/events/venue/${venueId}/by-date/${date}`),
+  
+  // Trigger auto status updates
+  autoUpdateStatus: () =>
+    api.post('/api/events/auto-update-status'),
+
+  // Legacy — keep for backward compat
+  softDelete: (eventId, deletedBy) =>
+    api.post(`/api/events/${eventId}/smart-delete`, { deleted_by: deletedBy }),
 };
 
 // Venues API
