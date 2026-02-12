@@ -102,8 +102,10 @@ export const guestsAPI = {
   create: (guestData) => 
     api.post('/api/guests', guestData),
   
-  getByEvent: (eventId) => 
-    api.get(`/api/guests/event/${eventId}`),
+  getByEvent: (eventId, userRole) => 
+    api.get(`/api/guests/event/${eventId}`, {
+      headers: userRole ? { 'x-user-role': userRole } : {}
+    }),
   
   checkIn: (guestId, scannerName) => 
     api.post(`/api/guests/${guestId}/checkin`, { scanner_name: scannerName }),
