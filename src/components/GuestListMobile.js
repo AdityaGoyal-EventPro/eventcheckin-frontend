@@ -65,7 +65,7 @@ function GuestListMobile({ guests, onCheckIn, onEdit, onDelete, showInvitationSt
           </div>
 
           {/* Meta Row: Tags */}
-          {(guest.plus_ones > 0 || guest.is_walk_in) && (
+          {(guest.plus_ones > 0 || guest.is_walk_in || guest.source === 'self_registered') && (
             <div className="flex items-center gap-2 mb-2 ml-[52px]">
               {guest.plus_ones > 0 && (
                 <span className="text-[11px] text-gray-500 bg-gray-50 px-2 py-0.5 rounded">
@@ -75,6 +75,11 @@ function GuestListMobile({ guests, onCheckIn, onEdit, onDelete, showInvitationSt
               {guest.is_walk_in && (
                 <span className="text-[11px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded font-medium">
                   Walk-in
+                </span>
+              )}
+              {guest.source === 'self_registered' && (
+                <span className="text-[11px] text-blue-700 bg-blue-50 px-2 py-0.5 rounded font-medium">
+                  Self-registered
                 </span>
               )}
             </div>
