@@ -11,7 +11,6 @@ import GuestInvitePage from './components/GuestInvitePage';  // ✅ Already impo
 import ResetPassword from './components/ResetPassword';
 import Signup from './components/Signup';
 import GuestRSVP from './components/GuestRSVP';
-import GuestRegistrationPage from './components/GuestRegistrationPage';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -91,12 +90,6 @@ function App() {
         <Route 
           path="/rsvp/:token" 
           element={<GuestRSVP />} 
-        />
-
-        {/* ✅ Guest Self-Registration (Public - No auth required) */}
-        <Route 
-          path="/register/:token" 
-          element={<GuestRegistrationPage />} 
         />
 
         {/* Dashboard Route - Role-based redirect */}
