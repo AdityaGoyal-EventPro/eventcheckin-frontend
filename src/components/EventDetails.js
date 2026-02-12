@@ -91,7 +91,7 @@ function EventDetails({ user }) {
       const eventResponse = await eventsAPI.getById(eventId);
       setEvent(eventResponse.data.event);
 
-      const guestsResponse = await guestsAPI.getByEvent(eventId);
+      const guestsResponse = await guestsAPI.getByEvent(eventId, user?.role);
       setGuests(guestsResponse.data.guests || []);
     } catch (error) {
       console.error('Error loading event data:', error);
@@ -152,11 +152,14 @@ function EventDetails({ user }) {
     if (statusFilter === 'checked-in') filtered = filtered.filter(g => g.checked_in);
     else if (statusFilter === 'pending') filtered = filtered.filter(g => !g.checked_in);
     if (searchTerm) {
-      filtered = filtered.filter(g =>
-        g.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (g.email && g.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (g.phone && g.phone.includes(searchTerm))
-      );
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(g => {
+        // Venue users can only search by name (phone/email are masked)
+        if (isVenue) return g.name.toLowerCase().includes(term);
+        return g.name.toLowerCase().includes(term) ||
+          (g.email && g.email.toLowerCase().includes(term)) ||
+          (g.phone && g.phone.includes(searchTerm));
+      });
     }
     return filtered;
   };
@@ -367,7 +370,7 @@ function EventDetails({ user }) {
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search by name, email, or phone..."
+                placeholder={isVenue ? "Search by name..." : "Search by name, email, or phone..."}
                 className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
               />
               {searchTerm && (
