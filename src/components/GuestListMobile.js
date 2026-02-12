@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, Edit2, Trash2, User } from 'lucide-react';
+import { Check, Edit2, Trash2, User, Lock } from 'lucide-react';
 import InvitationStatusBadge from './InvitationStatusBadge';
 
 function GuestListMobile({ guests, onCheckIn, onEdit, onDelete, showInvitationStatus = false }) {
@@ -42,7 +42,8 @@ function GuestListMobile({ guests, onCheckIn, onEdit, onDelete, showInvitationSt
                   </span>
                 )}
               </div>
-              <div className="text-xs text-gray-400 truncate mt-0.5">
+              <div className="text-xs text-gray-400 truncate mt-0.5 flex items-center gap-1">
+                {guest._masked && <Lock className="w-3 h-3 text-gray-300 flex-shrink-0" />}
                 {guest.phone && <span>{guest.phone}</span>}
                 {guest.phone && guest.email && <span> • </span>}
                 {guest.email && <span>{guest.email}</span>}
