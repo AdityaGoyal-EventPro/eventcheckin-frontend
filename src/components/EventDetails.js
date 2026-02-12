@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Camera, Search, RefreshCw, Check, X, Plus, UserPlus, Edit2, Trash2, Upload, Mail, QrCode } from 'lucide-react';
+import { ArrowLeft, Camera, Search, RefreshCw, Check, X, Plus, UserPlus, Edit2, Trash2, Upload, Mail, QrCode, Share2, Link } from 'lucide-react';
 import { eventsAPI, guestsAPI } from '../api';
 import GuestListMobile from './GuestListMobile';
 import SendInvitationsModal from './SendInvitationsModal';
@@ -59,6 +59,8 @@ function EventDetails({ user }) {
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [checkedInGuest, setCheckedInGuest] = useState(null);
   const [showManualSearch, setShowManualSearch] = useState(false);
+  const [showShareLink, setShowShareLink] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
   
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState('');
@@ -328,6 +330,14 @@ function EventDetails({ user }) {
               <span className="font-medium">Walk-In</span>
             </button>
 
+            <button
+              onClick={() => setShowShareLink(true)}
+              className="flex items-center justify-center gap-2 bg-white border-2 border-gray-200 hover:border-green-500 rounded-xl p-4 transition"
+            >
+              <Share2 className="w-5 h-5 text-green-600" />
+              <span className="font-medium">Share Link</span>
+            </button>
+
             {/* Delete/Archive Button */}
             <DeleteEventButton 
               event={event} 
@@ -518,6 +528,74 @@ function EventDetails({ user }) {
           event={event}
           onClose={() => { setShowSuccessDialog(false); setCheckedInGuest(null); }}
         />
+      )}
+
+      {/* Share Registration Link Modal */}
+      {showShareLink && event && (
+        <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+          <div className="bg-white w-full sm:rounded-2xl rounded-t-2xl sm:max-w-md shadow-2xl">
+            <div className="flex justify-center pt-3 sm:hidden">
+              <div className="w-9 h-1 bg-gray-300 rounded-full" />
+            </div>
+            <div className="p-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-2">Share Registration Link</h2>
+              <p className="text-sm text-gray-600 mb-5">
+                Guests can register themselves using this link. They'll be auto-added to your guest list.
+              </p>
+
+              {event.registration_token ? (
+                <>
+                  <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 mb-4">
+                    <p className="text-sm text-gray-800 break-all font-mono">
+                      {window.location.origin}/rsvp/{event.registration_token}
+                    </p>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(`${window.location.origin}/rsvp/${event.registration_token}`);
+                        setLinkCopied(true);
+                        setTimeout(() => setLinkCopied(false), 2000);
+                      }}
+                      className="flex-1 flex items-center justify-center gap-2 py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition"
+                    >
+                      <Link className="w-4 h-4" />
+                      {linkCopied ? 'Copied!' : 'Copy Link'}
+                    </button>
+                    
+                    <button
+                      onClick={() => {
+                        const url = `${window.location.origin}/rsvp/${event.registration_token}`;
+                        const text = `You're invited to ${event.name}! Register here: ${url}`;
+                        if (navigator.share) {
+                          navigator.share({ title: event.name, text, url });
+                        } else {
+                          window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+                        }
+                      }}
+                      className="flex-1 flex items-center justify-center gap-2 py-3 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 transition"
+                    >
+                      <Share2 className="w-4 h-4" />
+                      Share
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-amber-700 bg-amber-50 p-3 rounded-xl">
+                  Registration link not available. This event was created before the feature was enabled.
+                </p>
+              )}
+
+              <button
+                onClick={() => { setShowShareLink(false); setLinkCopied(false); }}
+                className="w-full mt-4 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
