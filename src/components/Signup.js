@@ -123,7 +123,9 @@ function Signup() {
       if (response.ok && data.success) {
         navigate('/login', { 
           state: { 
-            message: 'Account created successfully! Your account is pending admin approval. You will receive an email once approved.' 
+            message: formData.role === 'host' 
+              ? 'Account created successfully! You can now login.' 
+              : 'Account created successfully! Your account is pending admin approval. You will receive an email once approved.'
           } 
         });
       } else {
@@ -356,12 +358,14 @@ function Signup() {
           </div>
         </div>
 
-        {/* Approval Notice */}
-        <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
-          <p className="text-sm text-blue-800 text-center">
-            ℹ️ All {formData.role === 'host' ? 'Event Host' : 'Venue'} accounts require admin approval before you can login.
-          </p>
-        </div>
+        {/* Approval Notice - only for venue signups */}
+        {formData.role === 'venue' && (
+          <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+            <p className="text-sm text-blue-800 text-center">
+              ℹ️ Venue accounts require admin approval before you can login.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
