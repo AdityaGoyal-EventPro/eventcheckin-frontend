@@ -19,6 +19,15 @@ function isEventUpcoming(event) {
   return end >= new Date();
 }
 
+// ─── Helper: Convert 24hr to 12hr AM/PM ───
+function formatTime12(time24) {
+  if (!time24) return '';
+  const [h, m] = time24.split(':').map(Number);
+  const period = h < 12 ? 'AM' : 'PM';
+  const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${hour12}:${String(m).padStart(2, '0')} ${period}`;
+}
+
 // ─── Status Badge Component ───
 function StatusBadge({ event }) {
   if (event.status === 'archived') {
@@ -61,7 +70,7 @@ function EventCard({ event, onClick }) {
         </div>
         <div className="flex items-center gap-2">
           <Clock className="w-3.5 h-3.5" />
-          <span>{event.time_start}{event.time_end ? ` – ${event.time_end}` : ''}</span>
+          <span>{formatTime12(event.time_start)}{event.time_end ? ` – ${formatTime12(event.time_end)}` : ''}</span>
         </div>
         {event.venue_name && (
           <div className="flex items-center gap-2">
@@ -435,6 +444,22 @@ function Dashboard({ user, onLogout }) {
 // ============================================
 // CREATE EVENT MODAL
 // ============================================
+
+// Generate 30-min time slots in 12hr AM/PM format
+const TIME_SLOTS = (() => {
+  const slots = [];
+  for (let h = 0; h < 24; h++) {
+    for (let m = 0; m < 60; m += 30) {
+      const hour24 = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+      const period = h < 12 ? 'AM' : 'PM';
+      const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+      const label = `${hour12}:${String(m).padStart(2, '0')} ${period}`;
+      slots.push({ value: hour24, label });
+    }
+  }
+  return slots;
+})();
+
 function CreateEventModal({ user, venues, onClose, onSuccess }) {
   const [formData, setFormData] = useState({
     name: '',
@@ -445,6 +470,11 @@ function CreateEventModal({ user, venues, onClose, onSuccess }) {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Filter end times to only show times after start
+  const endTimeSlots = formData.time_start 
+    ? TIME_SLOTS.filter(slot => slot.value > formData.time_start) 
+    : TIME_SLOTS;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -508,23 +538,32 @@ function CreateEventModal({ user, venues, onClose, onSuccess }) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Start *</label>
-              <input
-                type="time"
+              <select
                 value={formData.time_start}
-                onChange={(e) => setFormData({ ...formData, time_start: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, time_start: e.target.value, time_end: '' })}
                 required
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl text-base focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              />
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl text-base focus:ring-2 focus:ring-indigo-500 focus:border-transparent appearance-none bg-white"
+              >
+                <option value="">Start time</option>
+                {TIME_SLOTS.map(slot => (
+                  <option key={slot.value} value={slot.value}>{slot.label}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">End *</label>
-              <input
-                type="time"
+              <select
                 value={formData.time_end}
                 onChange={(e) => setFormData({ ...formData, time_end: e.target.value })}
                 required
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl text-base focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              />
+                disabled={!formData.time_start}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl text-base focus:ring-2 focus:ring-indigo-500 focus:border-transparent appearance-none bg-white disabled:bg-gray-50 disabled:text-gray-400"
+              >
+                <option value="">{formData.time_start ? 'End time' : 'Pick start first'}</option>
+                {endTimeSlots.map(slot => (
+                  <option key={slot.value} value={slot.value}>{slot.label}</option>
+                ))}
+              </select>
             </div>
           </div>
 
