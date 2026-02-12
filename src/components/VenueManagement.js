@@ -41,16 +41,26 @@ function VenueManagement({ user }) {
     }
 
     try {
-      await fetch(`${process.env.REACT_APP_API_URL}/api/admin/venues/${venueId}`, {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/admin/venues/${venueId}`, {
         method: 'DELETE',
         headers: {
           'x-user-id': user.id,
           'x-user-role': user.role
         }
       });
-      loadVenues();
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to delete venue');
+      }
+      
+      // Remove venue from local state immediately for instant UI feedback
+      setVenues(prev => prev.filter(v => v.id !== venueId));
+      
     } catch (error) {
-      alert('Failed to delete venue');
+      console.error('Delete venue error:', error);
+      alert('Failed to delete venue: ' + error.message + '\n\nThis venue may have events or users linked to it. Remove those first.');
     }
   };
 
