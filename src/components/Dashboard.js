@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Calendar, Clock, MapPin, Users, Check, Archive, RotateCcw, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { eventsAPI, venuesAPI } from '../api';
@@ -466,15 +466,48 @@ function CreateEventModal({ user, venues, onClose, onSuccess }) {
     date: '',
     time_start: '',
     time_end: '',
-    venue_id: ''
+    venue_id: '',
+    description: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [wordCount, setWordCount] = useState(0);
+  const editorRef = useRef(null);
+  const MAX_WORDS = 500;
 
   // Filter end times to only show times after start
   const endTimeSlots = formData.time_start 
     ? TIME_SLOTS.filter(slot => slot.value > formData.time_start) 
     : TIME_SLOTS;
+
+  // Count words from HTML content
+  const countWords = useCallback((html) => {
+    const text = html.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!text) return 0;
+    return text.split(' ').filter(w => w.length > 0).length;
+  }, []);
+
+  // Handle editor input
+  const handleEditorInput = useCallback(() => {
+    if (!editorRef.current) return;
+    const html = editorRef.current.innerHTML;
+    const words = countWords(html);
+    
+    if (words > MAX_WORDS) {
+      // Don't update if over limit — revert
+      return;
+    }
+    
+    setWordCount(words);
+    setFormData(prev => ({ ...prev, description: html === '<br>' ? '' : html }));
+  }, [countWords]);
+
+  // Toolbar formatting commands
+  const execFormat = (command, value) => {
+    editorRef.current?.focus();
+    document.execCommand(command, false, value || null);
+    handleEditorInput();
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -580,6 +613,55 @@ function CreateEventModal({ user, venues, onClose, onSuccess }) {
                 <option key={venue.id} value={venue.id}>{venue.name} – {venue.city}</option>
               ))}
             </select>
+          </div>
+
+          {/* About Event - Rich Text Editor */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm font-medium text-gray-700">
+                About Event <span className="text-xs text-gray-400 font-normal">(optional — shown on registration page)</span>
+              </label>
+            </div>
+
+            {/* Toolbar */}
+            <div className="flex items-center gap-1 border border-gray-300 border-b-0 rounded-t-xl bg-gray-50 px-2 py-1.5">
+              <button type="button" onClick={() => execFormat('bold')} title="Bold"
+                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-200 active:bg-gray-300 transition text-sm font-bold text-gray-700">
+                B
+              </button>
+              <button type="button" onClick={() => execFormat('italic')} title="Italic"
+                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-200 active:bg-gray-300 transition text-sm italic text-gray-700">
+                I
+              </button>
+              <div className="w-px h-5 bg-gray-300 mx-1"></div>
+              <button type="button" onClick={() => execFormat('formatBlock', 'h3')} title="Heading"
+                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-200 active:bg-gray-300 transition text-xs font-bold text-gray-700">
+                H
+              </button>
+              <button type="button" onClick={() => execFormat('insertUnorderedList')} title="Bullet List"
+                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-200 active:bg-gray-300 transition text-sm text-gray-700">
+                •≡
+              </button>
+              <button type="button" onClick={() => execFormat('insertOrderedList')} title="Numbered List"
+                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-200 active:bg-gray-300 transition text-sm text-gray-700">
+                1.
+              </button>
+              <div className="flex-1"></div>
+              <span className={`text-xs tabular-nums ${wordCount > MAX_WORDS * 0.9 ? 'text-red-500 font-medium' : 'text-gray-400'}`}>
+                {wordCount}/{MAX_WORDS}
+              </span>
+            </div>
+
+            {/* Editable area */}
+            <div
+              ref={editorRef}
+              contentEditable
+              onInput={handleEditorInput}
+              data-placeholder="Describe your event — what guests can expect, dress code, special notes..."
+              className="w-full min-h-[120px] max-h-[200px] overflow-y-auto px-4 py-3 border border-gray-300 rounded-b-xl text-sm text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none leading-relaxed empty:before:content-[attr(data-placeholder)] empty:before:text-gray-400"
+              style={{ wordBreak: 'break-word' }}
+              suppressContentEditableWarning
+            />
           </div>
 
           <div className="flex gap-3 pt-2">
