@@ -208,14 +208,40 @@ function GuestRSVP() {
 
               {/* Venue */}
               {event.venue_name && (
-                <div className="flex items-center gap-2 text-gray-600 mb-8">
+                <div className="flex items-center gap-2 text-gray-600 mb-6">
                   <MapPin className="w-4 h-4 text-gray-400" />
                   <span className="text-sm">{event.venue_name}</span>
                 </div>
               )}
 
+              {/* Hosted By */}
+              {event.host_name && (
+                <div className="mb-8">
+                  <p className="text-xs text-gray-400 uppercase tracking-wider font-medium mb-2">Hosted by</p>
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 bg-gray-900 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
+                      {event.host_name.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="text-sm font-medium text-gray-900">{event.host_name}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* About Event */}
+              {event.description && (
+                <div className="mb-8">
+                  <div className="border-t border-gray-100 pt-6">
+                    <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-3">About Event</h2>
+                    <div 
+                      className="text-sm text-gray-600 leading-relaxed prose prose-sm prose-gray max-w-none [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-gray-900 [&_h3]:mt-4 [&_h3]:mb-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:space-y-1 [&_b]:font-semibold [&_b]:text-gray-800 [&_strong]:font-semibold [&_strong]:text-gray-800"
+                      dangerouslySetInnerHTML={{ __html: event.description }}
+                    />
+                  </div>
+                </div>
+              )}
+
               {/* Divider + note (desktop only) */}
-              <div className="hidden md:block border-t border-gray-100 pt-8 mt-8">
+              <div className="hidden md:block border-t border-gray-100 pt-8">
                 <p className="text-sm text-gray-400 leading-relaxed">
                   Register to confirm your attendance. You'll be added to the guest list instantly.
                 </p>
