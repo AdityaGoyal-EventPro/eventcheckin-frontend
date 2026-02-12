@@ -35,6 +35,10 @@ export const eventsAPI = {
   getById: (eventId) =>
     api.get(`/api/events/${eventId}`),
   
+  // Update event description
+  updateDescription: (eventId, description) =>
+    api.patch(`/api/events/${eventId}/description`, { description }),
+  
   // Smart delete — handles all 3 scenarios
   smartDelete: (eventId, deletedBy) =>
     api.post(`/api/events/${eventId}/smart-delete`, { deleted_by: deletedBy }),
@@ -61,6 +65,10 @@ export const eventsAPI = {
   // Trigger auto status updates
   autoUpdateStatus: () =>
     api.post('/api/events/auto-update-status'),
+
+  // Get registration link for guest self-registration
+  getRegistrationLink: (eventId) =>
+    api.get(`/api/events/${eventId}/registration-link`),
 
   // Legacy — keep for backward compat
   softDelete: (eventId, deletedBy) =>
