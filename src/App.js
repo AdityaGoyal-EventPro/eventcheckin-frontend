@@ -9,6 +9,7 @@ import AdminDashboard from './components/AdminDashboard';
 import PendingApproval from './components/PendingApproval';
 import GuestInvitePage from './components/GuestInvitePage';  // ✅ Already imported
 import ResetPassword from './components/ResetPassword';
+import Signup from './components/Signup';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -68,6 +69,14 @@ function App() {
         <Route 
           path="/reset-password" 
           element={<ResetPassword />} 
+        />
+
+        {/* ✅ Signup Route (Public - No auth required) */}
+        <Route 
+          path="/signup" 
+          element={
+            user ? <Navigate to="/" replace /> : <Signup />
+          } 
         />
 
         {/* ✅ ADD THIS: Guest Invitation Route (Public - No auth required) */}
