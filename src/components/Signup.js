@@ -1,6 +1,3 @@
-const handleSubmit = async () => {
-    alert('API URL: ' + process.env.REACT_APP_API_URL);  // ← add this
-    setError('');
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UserPlus, AlertCircle, CheckCircle } from 'lucide-react';
