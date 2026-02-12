@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Camera, Search, RefreshCw, Check, X, Plus, UserPlus, Edit2, Trash2, Upload, Mail, QrCode, Share2, Link } from 'lucide-react';
+import { ArrowLeft, Camera, Search, RefreshCw, Check, X, Plus, UserPlus, Edit2, Trash2, Upload, Mail, QrCode, Share2, Link, ChevronDown, ChevronUp, FileText } from 'lucide-react';
 import { eventsAPI, guestsAPI } from '../api';
 import GuestListMobile from './GuestListMobile';
 import SendInvitationsModal from './SendInvitationsModal';
@@ -61,6 +61,9 @@ function EventDetails({ user }) {
   const [showManualSearch, setShowManualSearch] = useState(false);
   const [showShareLink, setShowShareLink] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [showAbout, setShowAbout] = useState(false);
+  const [showEditDescription, setShowEditDescription] = useState(false);
+  const [savingDescription, setSavingDescription] = useState(false);
   
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState('');
@@ -289,6 +292,50 @@ function EventDetails({ user }) {
             <div className="text-sm text-gray-600">Opened</div>
           </div>
         </div>
+
+        {/* About Event Section - Collapsible */}
+        {(event?.description || (isHost && isEditable)) && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-8 overflow-hidden">
+            <button
+              onClick={() => setShowAbout(!showAbout)}
+              className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <FileText className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                <span className="font-medium text-gray-900 text-sm">About Event</span>
+                {!showAbout && event?.description && (
+                  <span className="text-xs text-gray-400 truncate hidden sm:inline">
+                    — {event.description.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60)}...
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {isHost && isEditable && (
+                  <span
+                    onClick={(e) => { e.stopPropagation(); setShowEditDescription(true); }}
+                    className="text-xs text-indigo-600 font-medium hover:text-indigo-700 px-2 py-1 rounded-lg hover:bg-indigo-50 transition"
+                  >
+                    {event?.description ? 'Edit' : 'Add'}
+                  </span>
+                )}
+                {showAbout ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+              </div>
+            </button>
+
+            {showAbout && (
+              <div className="px-5 pb-5 border-t border-gray-100">
+                {event?.description ? (
+                  <div 
+                    className="text-sm text-gray-600 leading-relaxed pt-4 prose prose-sm prose-gray max-w-none [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-gray-900 [&_h3]:mt-3 [&_h3]:mb-1.5 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:space-y-1 [&_b]:font-semibold [&_b]:text-gray-800 [&_strong]:font-semibold [&_strong]:text-gray-800"
+                    dangerouslySetInnerHTML={{ __html: event.description }}
+                  />
+                ) : (
+                  <p className="text-sm text-gray-400 pt-4 italic">No description added yet. Click "Add" to describe your event.</p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Action Buttons - Only show if event is editable */}
         {isHost && isEditable ? (
@@ -597,6 +644,136 @@ function EventDetails({ user }) {
           </div>
         </div>
       )}
+
+      {/* Edit Description Modal */}
+      {showEditDescription && event && (
+        <EditDescriptionModal
+          description={event.description || ''}
+          saving={savingDescription}
+          onSave={async (newDescription) => {
+            setSavingDescription(true);
+            try {
+              await eventsAPI.updateDescription(event.id, newDescription);
+              setEvent({ ...event, description: newDescription });
+              setShowEditDescription(false);
+              setShowAbout(true);
+            } catch (err) {
+              console.error('Failed to save description:', err);
+            } finally {
+              setSavingDescription(false);
+            }
+          }}
+          onClose={() => setShowEditDescription(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Edit Description Modal (Rich Text) ───
+function EditDescriptionModal({ description, saving, onSave, onClose }) {
+  const editorRef = useRef(null);
+  const [wordCount, setWordCount] = useState(0);
+  const MAX_WORDS = 500;
+
+  const countWords = useCallback((html) => {
+    const text = html.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!text) return 0;
+    return text.split(' ').filter(w => w.length > 0).length;
+  }, []);
+
+  useEffect(() => {
+    if (editorRef.current) {
+      editorRef.current.innerHTML = description || '';
+      setWordCount(countWords(description || ''));
+    }
+  }, [description, countWords]);
+
+  const handleEditorInput = useCallback(() => {
+    if (!editorRef.current) return;
+    const html = editorRef.current.innerHTML;
+    const words = countWords(html);
+    if (words > MAX_WORDS) return;
+    setWordCount(words);
+  }, [countWords]);
+
+  const execFormat = (command, value) => {
+    editorRef.current?.focus();
+    document.execCommand(command, false, value || null);
+    handleEditorInput();
+  };
+
+  const handleSave = () => {
+    const html = editorRef.current?.innerHTML || '';
+    const cleaned = html === '<br>' ? '' : html;
+    onSave(cleaned);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+      <div className="bg-white w-full sm:rounded-2xl rounded-t-2xl sm:max-w-lg max-h-[92vh] overflow-y-auto shadow-2xl">
+        <div className="flex justify-center pt-3 sm:hidden">
+          <div className="w-9 h-1 bg-gray-300 rounded-full" />
+        </div>
+
+        <div className="p-6 border-b border-gray-100">
+          <h2 className="text-lg font-bold text-gray-900">Edit Event Description</h2>
+          <p className="text-xs text-gray-500 mt-1">This will be shown on the guest registration page</p>
+        </div>
+
+        <div className="p-6">
+          {/* Toolbar */}
+          <div className="flex items-center gap-1 border border-gray-300 border-b-0 rounded-t-xl bg-gray-50 px-2 py-1.5">
+            <button type="button" onClick={() => execFormat('bold')} title="Bold"
+              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-200 active:bg-gray-300 transition text-sm font-bold text-gray-700">
+              B
+            </button>
+            <button type="button" onClick={() => execFormat('italic')} title="Italic"
+              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-200 active:bg-gray-300 transition text-sm italic text-gray-700">
+              I
+            </button>
+            <div className="w-px h-5 bg-gray-300 mx-1"></div>
+            <button type="button" onClick={() => execFormat('formatBlock', 'h3')} title="Heading"
+              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-200 active:bg-gray-300 transition text-xs font-bold text-gray-700">
+              H
+            </button>
+            <button type="button" onClick={() => execFormat('insertUnorderedList')} title="Bullet List"
+              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-200 active:bg-gray-300 transition text-sm text-gray-700">
+              •≡
+            </button>
+            <button type="button" onClick={() => execFormat('insertOrderedList')} title="Numbered List"
+              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-200 active:bg-gray-300 transition text-sm text-gray-700">
+              1.
+            </button>
+            <div className="flex-1"></div>
+            <span className={`text-xs tabular-nums ${wordCount > MAX_WORDS * 0.9 ? 'text-red-500 font-medium' : 'text-gray-400'}`}>
+              {wordCount}/{MAX_WORDS}
+            </span>
+          </div>
+
+          {/* Editable area */}
+          <div
+            ref={editorRef}
+            contentEditable
+            onInput={handleEditorInput}
+            data-placeholder="Describe your event — what guests can expect, dress code, special notes..."
+            className="w-full min-h-[180px] max-h-[300px] overflow-y-auto px-4 py-3 border border-gray-300 rounded-b-xl text-sm text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none leading-relaxed empty:before:content-[attr(data-placeholder)] empty:before:text-gray-400"
+            style={{ wordBreak: 'break-word' }}
+            suppressContentEditableWarning
+          />
+
+          <div className="flex gap-3 mt-5">
+            <button onClick={onClose} disabled={saving}
+              className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium text-sm hover:bg-gray-200 transition">
+              Cancel
+            </button>
+            <button onClick={handleSave} disabled={saving}
+              className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-medium text-sm hover:bg-indigo-700 transition disabled:opacity-50">
+              {saving ? 'Saving...' : 'Save'}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
